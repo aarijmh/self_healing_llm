@@ -18,9 +18,28 @@ ollama serve
 
 ## Usage
 
+### CLI (Original)
 ```bash
 python main.py example_test.json
 ```
+
+### Service Mode
+```bash
+# Start service
+python service.py
+
+# Or with Docker
+docker-compose up
+
+# Use client
+python client.py
+```
+
+### API Endpoints
+- `POST /test/run` - Execute test with healing
+- `GET /job/{job_id}` - Check job status
+- `POST /heal` - Heal single selector
+- `GET /health` - Health check
 
 ## How it works
 
