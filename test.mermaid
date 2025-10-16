@@ -1,0 +1,131 @@
+sequenceDiagram
+    participant User
+    participant AppStore as App Store
+    participant MobileApp as Mobile Banking App
+    participant CallSign as CallSign Auth
+    participant BankMCP as Bank MCP Server
+    participant HSM as Hardware Security Module
+    participant Bank as Bank Core System
+    participant AmazonMCP as Amazon MCP Server
+    participant BestBuyMCP as BestBuy MCP Server
+    participant TargetMCP as Target MCP Server
+    participant PaymentProtocol as Payment Protocol
+
+    Note over User, PaymentProtocol: Complete Lifecycle: Download → Authentication → Delegation → Multi-Shopper Purchase
+
+    %% App Download & Installation
+    User->>AppStore: Search "SecureBank AI Agent"
+    AppStore-->>User: App listing with bank verification badge
+    User->>AppStore: Download & Install app
+    AppStore->>MobileApp: Install banking app with CallSign SDK
+    MobileApp-->>User: "Welcome to SecureBank AI Agent"
+
+    %% Initial Setup & Identity Verification
+    User->>MobileApp: "Set up my account"
+    MobileApp->>User: "Please enter your account number and SSN"
+    User->>MobileApp: Provide account credentials
+    MobileApp->>Bank: Verify customer identity
+    Bank->>Bank: KYC validation & risk assessment
+    Bank-->>MobileApp: Identity verified
+
+    %% Device Registration & Biometric Enrollment
+    MobileApp->>CallSign: Initialize device fingerprinting
+    CallSign->>CallSign: Collect device characteristics
+    CallSign-->>MobileApp: Device fingerprint created
+    MobileApp->>User: "Please complete biometric enrollment"
+    User->>CallSign: Face scan enrollment
+    User->>CallSign: Voice pattern enrollment
+    CallSign->>CallSign: Create biometric templates
+    CallSign-->>MobileApp: Biometric enrollment complete
+
+    %% Agent Registration & MCP Discovery
+    MobileApp->>BankMCP: Request agent registration
+    BankMCP->>BankMCP: Register shopping MCPs (Amazon, BestBuy, Target, etc.)
+    BankMCP->>HSM: Generate agent certificate with shopping capabilities
+    HSM->>HSM: Create public/private key pair
+    HSM-->>BankMCP: Agent certificate with dual signatures
+    BankMCP-->>MobileApp: Agent credentials & registered MCP endpoints
+    MobileApp->>MobileApp: Store credentials in secure enclave
+    MobileApp-->>User: "✅ Your SecureBank AI Agent is ready with shopping capabilities!"
+
+    %% User Delegation to Agent
+    User->>MobileApp: "I want to delegate shopping decisions to you"
+    MobileApp->>CallSign: Enhanced delegation authentication
+    CallSign->>User: "Confirm delegation with biometric + PIN"
+    User->>CallSign: Face scan + PIN entry
+    CallSign-->>MobileApp: Delegation authorized
+    MobileApp->>BankMCP: register_delegation(spending_limit=5000, categories=["electronics", "home"])
+    BankMCP-->>MobileApp: Delegation registered with limits
+    MobileApp-->>User: "✅ Delegation active. I can shop for electronics up to $5000 on your behalf"
+
+    Note over User, PaymentProtocol: === 30 Days Later: User Makes First Purchase ===
+
+    %% Daily Authentication
+    User->>MobileApp: Open app
+    MobileApp->>CallSign: Continuous authentication check
+    CallSign->>CallSign: Validate face, voice, behavior patterns
+    CallSign-->>MobileApp: Authentication successful
+    MobileApp-->>User: "Good morning! How can I help you today?"
+
+    %% User Instructions to Banking Agent
+    User->>MobileApp: "I need a laptop for work under $2000"
+    MobileApp->>MobileApp: Parse intent & check delegation authority
+    MobileApp->>BankMCP: Validate session & get fresh token
+    BankMCP-->>MobileApp: Session token (15min TTL)
+
+    %% Multi-Shopper Recommendations
+    MobileApp->>AmazonMCP: search_products(query="work laptop", max_price=2000)
+    MobileApp->>BestBuyMCP: search_products(query="work laptop", max_price=2000)
+    MobileApp->>TargetMCP: search_products(query="work laptop", max_price=2000)
+    
+    AmazonMCP-->>MobileApp: Dell XPS 15 - $1,899
+    BestBuyMCP-->>MobileApp: MacBook Air M2 - $1,799
+    TargetMCP-->>MobileApp: HP Spectre x360 - $1,699
+    
+    MobileApp->>MobileApp: Analyze options & user preferences
+    MobileApp-->>User: "I found 3 great options:\n1. Dell XPS 15 ($1,899) - Amazon\n2. MacBook Air M2 ($1,799) - BestBuy\n3. HP Spectre ($1,699) - Target\nBased on your work needs, I recommend the MacBook Air. Shall I proceed?"
+    User->>MobileApp: "Yes, get the MacBook from BestBuy"
+
+    %% Transaction Authorization
+    MobileApp->>BankMCP: authorize_purchase(amount=1899, merchant="amazon")
+    BankMCP->>BankMCP: Validate dual-signed certificate
+    BankMCP->>BankMCP: Check spending limits & fraud rules
+    BankMCP-->>MobileApp: Pre-authorization approved
+
+    %% Step-up Authentication for Payment
+    MobileApp->>CallSign: Request payment authentication
+    CallSign->>User: "Please confirm payment with face scan"
+    User->>CallSign: Face scan for payment confirmation
+    CallSign->>CallSign: Enhanced biometric validation
+    CallSign-->>MobileApp: Payment authorization granted
+
+    %% Secure Payment Processing
+    MobileApp->>BankMCP: get_payment_credentials(txn_id)
+    BankMCP->>HSM: Generate payment token
+    HSM-->>BankMCP: Encrypted payment token (5min TTL)
+    BankMCP-->>MobileApp: Secure payment credentials
+
+    %% Trusted Banking Agent Payment
+    Note over MobileApp, Bank: Banking agent provides trusted payment channel
+    MobileApp->>BankMCP: initiate_trusted_payment(merchant="bestbuy", amount=1799)
+    BankMCP->>BankMCP: Validate delegation authority & spending limits
+    BankMCP->>PaymentProtocol: secure_agent_payment(bank_guaranteed=true)
+    PaymentProtocol->>BestBuyMCP: payment_request(amount=1799, bank_verified=true)
+    BestBuyMCP->>BestBuyMCP: Accept payment (higher trust due to bank agent)
+    BestBuyMCP-->>PaymentProtocol: payment_accepted
+    PaymentProtocol->>BankMCP: process_payment
+    BankMCP->>Bank: Execute transaction with agent delegation
+    Bank->>Bank: Debit account & transfer funds
+    Bank-->>BankMCP: Transaction completed
+
+    %% Order Completion with Banking Trust
+    BankMCP-->>PaymentProtocol: Payment confirmed
+    PaymentProtocol-->>BestBuyMCP: Payment successful
+    BestBuyMCP->>BestBuyMCP: Create order with expedited processing
+    BestBuyMCP-->>MobileApp: Order confirmation with bank trust benefits
+    MobileApp-->>User: "✅ MacBook Air M2 ordered from BestBuy! Bank-verified payment = faster processing. Delivery tomorrow! Order #BB_456"
+
+    %% Post-Transaction
+    BankMCP->>BankMCP: Update user spending patterns
+    BankMCP->>BankMCP: Log transaction for compliance
+    MobileApp->>User: Push notification with receipt
