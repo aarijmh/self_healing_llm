@@ -1,0 +1,27 @@
+@startuml
+title Phase 1 & 2: Merchant and Agent Registration with CallSign Agent Directory
+
+entity "CallSign Agent Directory" as Directory
+entity "Amazon (Merchant)" as Merchant
+entity "Amazon Agent (LLM + Memory)" as Agent
+
+== Phase 1: Merchant Registration with Agent Directory ==
+
+Merchant -> Directory : Register merchant identity
+Directory -> Directory : Verify merchant credentials (business license, domain ownership)
+Directory -> Directory : Generate merchant certificate & signing key
+Directory -> Merchant : **Merchant authenticated & registered**
+note right: Merchant can now issue agents\nwith Directory's blessing
+
+== Phase 2: Agent Registration & Signing ==
+
+Merchant -> Agent : Develop agent with capabilities (shopping, checkout)
+Merchant -> Directory : Register agent (agent_id, capabilities, scopes)
+Directory -> Directory : Validate agent metadata & merchant signature
+Directory -> Directory : Sign agent with Directory's private key
+Directory -> Merchant : **Agent certificate (dual-signed: Merchant + Directory)**
+note right: Agent certificate contains:\n- Agent ID\n- Merchant ID\n- Capabilities (payment, search, checkout)\n- Expiration date\n- Revocation endpoint
+
+Merchant -> Merchant : Package agent with certificate into mobile app
+
+@enduml

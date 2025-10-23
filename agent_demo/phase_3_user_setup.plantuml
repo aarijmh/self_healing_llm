@@ -1,0 +1,52 @@
+@startuml
+title Phase 3: User Downloads App & Agent Registration
+
+actor Customer
+entity "CallSign Agent Directory" as Directory
+entity "Amazon (Merchant)" as Merchant
+entity "Amazon Agent (LLM + Memory)" as Agent
+entity "Callsign Gateway" as Gateway
+entity "Callsign SDK" as SDK
+entity "Callsign Delegation Service" as Delegation
+entity "Callsign Backend (Token Vault)" as Backend
+entity "Bank"
+
+== Phase 3: User Downloads App & Agent Registration ==
+
+Customer -> Merchant : Download Amazon app (includes signed agent)
+Merchant -> Customer : Install app with embedded agent certificate
+
+Customer -> Agent : Launch app & initiate setup
+Agent -> Customer : Request authentication
+Customer -> Agent : Provide credentials/biometrics
+
+Agent -> Directory : Verify agent certificate is still valid
+Directory -> Directory : Check certificate status & revocation list
+Directory -> Agent : Certificate valid
+
+Agent -> SDK : Initialize with agent certificate
+SDK -> Directory : Validate agent signature chain (Directory → Merchant → Agent)
+Directory -> Directory : Verify dual signatures
+Directory -> SDK : Agent authenticity confirmed
+
+SDK -> Delegation : Register user-agent binding with certificate
+Delegation -> Delegation : Create user-agent trust relationship
+Delegation -> SDK : User-agent binding established
+SDK -> Agent : Store trust token & agent certificate
+Agent -> Customer : **Trust established (User ↔ Agent ↔ Directory)**
+
+Agent -> SDK : Request payment delegation
+SDK -> Backend : Register trust relationship with agent certificate
+Backend -> Bank : Establish secure channel (mTLS/OAuth) with agent attestation
+Bank -> Bank : Verify agent certificate from Directory
+Bank -> Backend : Trust confirmation
+Backend -> SDK : **Trust established (Agent ↔ Callsign ↔ Bank)**
+
+Customer -> Agent : "Delegate shopping decisions (limit: $5000)"
+Agent -> Delegation : Request delegation scope
+Delegation -> Directory : Verify agent capabilities allow delegation
+Directory -> Delegation : Capabilities confirmed
+Delegation -> Agent : Delegation granted with spending limits
+Agent -> Customer : **Delegation active - I can shop on your behalf**
+
+@enduml
