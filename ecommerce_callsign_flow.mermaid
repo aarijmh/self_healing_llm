@@ -1,0 +1,53 @@
+%%{init: {'theme':'dark'}}%%
+flowchart TD
+    Customer[👤 Customer] --> Agent[🤖 AI Agent]
+    Agent --> Store[🛒 E-commerce Store]
+    Store --> CS[🔐 CallSign Gateway<br/>Auth/Authorization Verifier]
+    CS --> Bank[🏦 Bank]
+    
+    subgraph "CallSign Detection & Authentication"
+        CS --> D1[🔍 Request Source Detection]
+        D1 --> D2{AI Agent<br/>Detected?}
+        D2 -->|Yes| A1[Enhanced Verification<br/>Required]
+        D2 -->|No| A2[Standard Verification]
+        A1 --> A3[Step-Up Authentication]
+        A3 --> A4[📱 Biometric Verification]
+        A4 --> A5[📍 Location Check]
+        A5 --> A6[⏰ Behavioral Analysis]
+        A2 --> CS3[Authorization Decision]
+        A6 --> CS3
+    end
+    
+    subgraph "Transaction Process"
+        Store --> T1[Add to Cart]
+        T1 --> T2[Checkout Request]
+        T2 --> CS
+        CS3 --> T3{Verified &<br/>Authorized?}
+        T3 -->|✅ Approved| Bank
+        T3 -->|❌ Denied| T4[Transaction Blocked]
+        T3 -->|⚠️ Step-Up Required| A3
+        Bank --> T5[Payment Processing]
+        T5 --> Store
+        Store --> Agent
+        Agent --> Customer
+    end
+    
+    style Customer fill:#2d3748,stroke:#63b3ed,stroke-width:3px,color:#ffffff
+    style Agent fill:#2a4365,stroke:#fbb6ce,stroke-width:3px,color:#ffffff
+    style Store fill:#2d3748,stroke:#9ae6b4,stroke-width:3px,color:#ffffff
+    style CS fill:#e53e3e,stroke:#ffffff,stroke-width:4px,color:#ffffff
+    style Bank fill:#2d3748,stroke:#68d391,stroke-width:3px,color:#ffffff
+    style D1 fill:#4a5568,stroke:#90cdf4,stroke-width:2px,color:#ffffff
+    style D2 fill:#553c9a,stroke:#fbb6ce,stroke-width:3px,color:#ffffff
+    style A1 fill:#742a2a,stroke:#fc8181,stroke-width:2px,color:#ffffff
+    style A2 fill:#2f855a,stroke:#68d391,stroke-width:2px,color:#ffffff
+    style A3 fill:#c53030,stroke:#fed7d7,stroke-width:3px,color:#ffffff
+    style A4 fill:#553c9a,stroke:#d6bcfa,stroke-width:2px,color:#ffffff
+    style A5 fill:#2c5282,stroke:#90cdf4,stroke-width:2px,color:#ffffff
+    style A6 fill:#744210,stroke:#f6e05e,stroke-width:2px,color:#ffffff
+    style CS3 fill:#2f855a,stroke:#9ae6b4,stroke-width:2px,color:#ffffff
+    style T1 fill:#4a5568,stroke:#a0aec0,stroke-width:2px,color:#ffffff
+    style T2 fill:#4a5568,stroke:#a0aec0,stroke-width:2px,color:#ffffff
+    style T3 fill:#553c9a,stroke:#fbb6ce,stroke-width:3px,color:#ffffff
+    style T4 fill:#c53030,stroke:#fed7d7,stroke-width:2px,color:#ffffff
+    style T5 fill:#2f855a,stroke:#9ae6b4,stroke-width:2px,color:#ffffff

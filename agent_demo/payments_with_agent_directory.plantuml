@@ -1,0 +1,166 @@
+@startuml
+title Secure Agent-to-Payment with CallSign Agent Directory (A2P Protocol)
+
+actor Customer
+entity "CallSign Agent Directory" as Directory
+entity "Amazon (Merchant)" as Merchant
+entity "Amazon Agent (LLM + Memory)" as Agent
+entity "Checkout Page" as Checkout
+entity "Amazon Backend" as AmazonBackend
+entity "Callsign Gateway" as Gateway
+entity "Callsign SDK" as SDK
+entity "Callsign Delegation Service" as Delegation
+entity "Callsign Backend (Token Vault)" as Backend
+entity "Callsign Payment Protocol" as PaymentProtocol
+entity "Bank"
+
+== Phase 1: Merchant Registration with Agent Directory ==
+
+Merchant -> Directory : Register merchant identity
+Directory -> Directory : Verify merchant credentials (business license, domain ownership)
+Directory -> Directory : Generate merchant certificate & signing key
+Directory -> Merchant : **Merchant authenticated & registered**
+note right: Merchant can now issue agents\nwith Directory's blessing
+
+== Phase 2: Agent Registration & Signing ==
+
+Merchant -> Agent : Develop agent with capabilities (shopping, checkout)
+Merchant -> Directory : Register agent (agent_id, capabilities, scopes)
+Directory -> Directory : Validate agent metadata & merchant signature
+Directory -> Directory : Sign agent with Directory's private key
+Directory -> Merchant : **Agent certificate (dual-signed: Merchant + Directory)**
+note right: Agent certificate contains:\n- Agent ID\n- Merchant ID\n- Capabilities (payment, search, checkout)\n- Expiration date\n- Revocation endpoint
+
+Merchant -> Merchant : Package agent with certificate into mobile app
+
+== Phase 3: User Downloads App & Agent Registration ==
+
+Customer -> Merchant : Download Amazon app (includes signed agent)
+Merchant -> Customer : Install app with embedded agent certificate
+
+Customer -> Agent : Launch app & initiate setup
+Agent -> Customer : Request authentication
+Customer -> Agent : Provide credentials/biometrics
+
+Agent -> Directory : Verify agent certificate is still valid
+Directory -> Directory : Check certificate status & revocation list
+Directory -> Agent : Certificate valid
+
+Agent -> SDK : Initialize with agent certificate
+SDK -> Directory : Validate agent signature chain (Directory → Merchant → Agent)
+Directory -> Directory : Verify dual signatures
+Directory -> SDK : Agent authenticity confirmed
+
+SDK -> Delegation : Register user-agent binding with certificate
+Delegation -> Delegation : Create user-agent trust relationship
+Delegation -> SDK : User-agent binding established
+SDK -> Agent : Store trust token & agent certificate
+Agent -> Customer : **Trust established (User ↔ Agent ↔ Directory)**
+
+Agent -> SDK : Request payment delegation
+SDK -> Backend : Register trust relationship with agent certificate
+Backend -> Bank : Establish secure channel (mTLS/OAuth) with agent attestation
+Bank -> Bank : Verify agent certificate from Directory
+Bank -> Backend : Trust confirmation
+Backend -> SDK : **Trust established (Agent ↔ Callsign ↔ Bank)**
+
+Customer -> Agent : "Delegate shopping decisions (limit: $5000)"
+Agent -> Delegation : Request delegation scope
+Delegation -> Directory : Verify agent capabilities allow delegation
+Directory -> Delegation : Capabilities confirmed
+Delegation -> Agent : Delegation granted with spending limits
+Agent -> Customer : **Delegation active - I can shop on your behalf**
+
+== Phase 4: Automated Shopping Transaction ==
+
+Customer -> Agent : "Buy me a laptop under $2000"
+Agent -> Agent : Parse intent & verify delegation authority
+Agent -> Directory : Validate session & agent certificate
+Directory -> Agent : Session valid, certificate not revoked
+
+Agent -> Agent : Search product catalog
+Agent -> Agent : Find Dell XPS 15 ($1,899)
+Agent -> Customer : "Found Dell XPS 15 for $1,899. Proceeding with purchase."
+
+Agent -> Checkout : Navigate to checkout (automated)
+Checkout -> Gateway : Transaction request with agent certificate
+Gateway -> Gateway : Detect AI agent via certificate
+Gateway -> Directory : Verify agent certificate authenticity
+Directory -> Gateway : Certificate valid, merchant trusted
+
+Gateway -> Gateway : Enhanced verification (agent-specific rules)
+Gateway -> Gateway : Check delegation limits ($1,899 < $5,000 ✓)
+Gateway -> Gateway : Behavioral analysis (agent pattern recognition)
+
+alt Agent Certificate Valid & Within Limits
+    Gateway -> Customer : Step-up authentication (biometric)
+    Customer -> Gateway : Face scan confirmation
+    Gateway -> Gateway : Authorization decision
+    Gateway -> Checkout : Proceed with transaction
+else Certificate Revoked or Limits Exceeded
+    Gateway -> Agent : Transaction blocked
+    Agent -> Customer : "Cannot complete - requires manual approval"
+end
+
+Checkout -> PaymentProtocol : Request payment authorization with agent attestation
+PaymentProtocol -> Bank : Authorize payment (agent certificate included)
+Bank -> Bank : Verify agent certificate from Directory
+Bank -> Bank : Validate delegation authority
+Bank -> PaymentProtocol : Confirm authorization
+PaymentProtocol -> Backend : Store token with agent binding
+Backend -> PaymentProtocol : Token stored
+Agent -> Customer : **Payment successful - Order placed automatically**
+
+== Phase 5: Subsequent Automated Transaction (30 Days Later) ==
+
+Customer -> Agent : "Buy wireless mouse under $100"
+Agent -> Agent : Verify delegation still active
+Agent -> Directory : Validate agent certificate & check revocation
+Directory -> Agent : Certificate valid
+
+Agent -> SDK : Validate trust chain
+SDK -> Delegation : Verify user-agent binding
+Delegation -> Directory : Confirm agent certificate status
+Directory -> Delegation : Agent trusted
+Delegation -> SDK : Trust confirmed
+
+Agent -> Agent : Search & find Logitech MX Master ($99)
+Agent -> Checkout : Automated checkout
+
+SDK -> Backend : Retrieve stored token with agent certificate
+Backend -> Backend : Verify agent certificate signature
+Backend -> SDK : Token returned with trust validation
+
+Gateway -> Gateway : AI agent detection via certificate
+Gateway -> Gateway : Enhanced verification
+Gateway -> Gateway : Check velocity limits & delegation scope
+
+alt Token Valid & Within Delegation Limits
+    Gateway -> Gateway : Authorization approved (no step-up needed)
+    Agent -> PaymentProtocol : Use token to initiate payment
+    PaymentProtocol -> Bank : Process payment with agent attestation
+    Bank -> Bank : Validate agent certificate from Directory
+    Bank -> PaymentProtocol : Confirm payment
+    PaymentProtocol -> Agent : Payment success
+    Agent -> Customer : **Mouse ordered automatically - No interaction needed!**
+else Security Threshold Exceeded
+    Gateway -> Customer : Step-up authentication required
+    Customer -> Gateway : Biometric confirmation
+end
+
+== Phase 6: Agent Revocation Scenario ==
+
+note over Directory: Security incident detected:\nAgent vulnerability discovered
+
+Directory -> Directory : Revoke agent certificate
+Directory -> Directory : Update revocation list
+Directory -> Merchant : Notify of revocation
+Directory -> Bank : Broadcast revocation to payment network
+
+Customer -> Agent : "Buy headphones"
+Agent -> Directory : Validate certificate
+Directory -> Agent : **Certificate REVOKED**
+Agent -> Customer : "Agent disabled - Please update app"
+Agent -> Agent : Disable all payment capabilities
+
+@enduml

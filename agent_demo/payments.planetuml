@@ -1,0 +1,112 @@
+@startuml
+actor Customer
+entity "Amazon Agent (LLM + Memory)" as Agent
+entity "Checkout Page" as Checkout
+entity "Amazon Backend" as AmazonBackend
+entity "Callsign Gateway" as Gateway
+entity "Callsign SDK" as SDK
+entity "Callsign Delegation Service" as Delegation
+entity "Callsign Backend (Token Vault)" as Backend
+entity "Callsign Payment Protocol" as PaymentProtocol
+entity "Bank"
+
+== Trust Establishment Phase ==
+
+Customer -> Agent : Initial interaction
+Agent -> Customer : Request authentication
+Customer -> Agent : Provide credentials/biometrics
+Agent -> Agent : Verify user identity
+Agent -> Customer : **Trust established (User ↔ Agent)**
+
+Agent -> SDK : Initialize trust framework
+SDK -> Delegation : Request delegation with Agent identity
+Delegation -> Delegation : Verify Agent credentials
+Delegation -> SDK : Delegation granted with trust token
+SDK -> Agent : Store trust token
+Agent -> SDK : **Trust established (Agent ↔ Callsign)**
+
+SDK -> Backend : Register trust relationship
+Backend -> Bank : Establish secure channel (mTLS/OAuth)
+Bank -> Backend : Trust confirmation
+Backend -> SDK : **Trust established (Callsign ↔ Bank)**
+
+== Transaction Phase ==
+ 
+Customer -> Agent : Provide instructions (e.g., find product)
+Agent -> Agent : Search product catalog
+Agent -> Agent : Add product to cart
+Agent -> Customer : Show product
+ 
+Customer -> Agent : Proceed to checkout
+Agent -> Checkout : Navigate to checkout page
+Checkout -> Gateway : Transaction request
+Gateway -> Gateway : Request source detection
+
+alt AI Agent Detected
+    Gateway -> Gateway : Enhanced verification required
+    Gateway -> Customer : Step-up authentication
+    Customer -> Gateway : Biometric verification
+    Gateway -> Gateway : Location check
+    Gateway -> Gateway : Behavioral analysis
+    Gateway -> Gateway : Authorization decision
+    alt Approved
+        Gateway -> Checkout : Proceed with transaction
+    else Denied
+        Gateway -> Agent : Transaction blocked
+        Agent -> Customer : Payment denied
+    else Step-up Required
+        Gateway -> Customer : Additional verification needed
+    end
+else Standard User
+    Gateway -> Gateway : Standard verification
+    Gateway -> Checkout : Proceed with transaction
+end
+
+Checkout -> Customer : Prompt for card input
+Customer -> Checkout : Input card details
+Checkout -> AmazonBackend : Check if card used with merchant before
+alt Card never used before
+    Checkout -> PaymentProtocol : Request payment authorization
+    PaymentProtocol -> Bank : Authorize payment via banking app (using trusted channel)
+    Bank -> Bank : Verify Callsign trust certificate
+    Bank -> PaymentProtocol : Confirm authorization
+    PaymentProtocol -> Backend : Store token and payment metadata
+    Agent -> Customer : Payment successful, token issued
+else Card previously used
+    SDK -> Backend : Retrieve stored token (verify Agent trust)
+    Backend -> SDK : Token returned (trust validated)
+    Agent -> Customer : Payment successful, token reused
+end
+ 
+== Second Interaction ==
+ 
+Customer -> Agent : Provide same instructions again
+Agent -> Agent : Verify Customer trust token still valid
+Agent -> Gateway : Transaction request with trust token
+Gateway -> Gateway : AI agent detection
+Gateway -> Gateway : Enhanced verification
+Agent -> SDK : Validate trust with Delegation Service
+SDK -> Delegation : Validate prompt and agent identity
+Delegation -> Delegation : Verify trust chain (User→Agent→Callsign)
+Delegation -> SDK : Trust confirmed
+ 
+SDK -> Backend : Retrieve stored token
+Backend -> SDK : Token returned with trust validation
+ 
+alt Token valid and velocity/value limits unchanged
+    Gateway -> Gateway : Authorization decision
+    alt Approved
+        Agent -> PaymentProtocol : Use token to initiate payment
+        PaymentProtocol -> Bank : Process payment (verify Callsign trust)
+        Bank -> Bank : Validate trust certificate
+        Bank -> PaymentProtocol : Confirm payment
+        PaymentProtocol -> Agent : Payment success
+        Agent -> Customer : Payment successful, no step-up required
+    else Security check failed
+        Gateway -> Customer : Step-up authentication required
+    end
+else Token invalid or limits changed
+    Agent -> Customer : Request card input again
+end
+ 
+@enduml
