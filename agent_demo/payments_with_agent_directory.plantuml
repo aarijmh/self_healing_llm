@@ -1,8 +1,8 @@
 @startuml
-title Secure Agent-to-Payment with CallSign Agent Directory (A2P Protocol)
+title Secure Agent-to-Payment with CallSign Payment Gateway (A2P Protocol)
 
 actor Customer
-entity "CallSign Agent Directory" as Directory
+entity "CallSign Agent Gateway" as Directory
 entity "Amazon (Merchant)" as Merchant
 entity "Amazon Agent (LLM + Memory)" as Agent
 entity "Checkout Page" as Checkout
@@ -33,7 +33,7 @@ note right: Agent certificate contains:\n- Agent ID\n- Merchant ID\n- Capabiliti
 
 Merchant -> Merchant : Package agent with certificate into mobile app
 
-== Phase 3: User Downloads App & Agent Registration ==
+== Phase 3: User Downloads App & CallSign Establishes Trust ==
 
 Customer -> Merchant : Download Amazon app (includes signed agent)
 Merchant -> Customer : Install app with embedded agent certificate
@@ -42,34 +42,38 @@ Customer -> Agent : Launch app & initiate setup
 Agent -> Customer : Request authentication
 Customer -> Agent : Provide credentials/biometrics
 
+note over Agent, Directory: **CallSign Trust Establishment Process**
+
 Agent -> Directory : Verify agent certificate is still valid
 Directory -> Directory : Check certificate status & revocation list
-Directory -> Agent : Certificate valid
+Directory -> Agent : Certificate valid ✓
+note right: CallSign confirms agent\nis legitimate & not revoked
 
 Agent -> SDK : Initialize with agent certificate
 SDK -> Directory : Validate agent signature chain (Directory → Merchant → Agent)
-Directory -> Directory : Verify dual signatures
-Directory -> SDK : Agent authenticity confirmed
+Directory -> Directory : Verify dual signatures (Directory + Merchant)
+Directory -> SDK : Agent authenticity confirmed ✓
+note right: CallSign cryptographically\nverifies agent identity
 
 SDK -> Delegation : Register user-agent binding with certificate
 Delegation -> Delegation : Create user-agent trust relationship
+Delegation -> Directory : Verify agent capabilities & permissions
+Directory -> Delegation : Agent capabilities validated ✓
 Delegation -> SDK : User-agent binding established
 SDK -> Agent : Store trust token & agent certificate
-Agent -> Customer : **Trust established (User ↔ Agent ↔ Directory)**
+note right: CallSign creates secure\nUser ↔ Agent binding
 
-Agent -> SDK : Request payment delegation
-SDK -> Backend : Register trust relationship with agent certificate
-Backend -> Bank : Establish secure channel (mTLS/OAuth) with agent attestation
-Bank -> Bank : Verify agent certificate from Directory
-Bank -> Backend : Trust confirmation
-Backend -> SDK : **Trust established (Agent ↔ Callsign ↔ Bank)**
+Agent -> Customer : **Trust established via CallSign**
+note over Customer, Agent: CallSign guarantees:\n1. Agent is authentic (signed by Directory)\n2. Agent is authorized by Merchant\n3. Agent has not been revoked\n4. Secure User-Agent binding created
 
 Customer -> Agent : "Delegate shopping decisions (limit: $5000)"
-Agent -> Delegation : Request delegation scope
+Agent -> Delegation : Request delegation scope with user consent
 Delegation -> Directory : Verify agent capabilities allow delegation
-Directory -> Delegation : Capabilities confirmed
+Directory -> Delegation : Capabilities confirmed (shopping, checkout) ✓
+Delegation -> Delegation : Create delegation policy (limit: $5000)
 Delegation -> Agent : Delegation granted with spending limits
 Agent -> Customer : **Delegation active - I can shop on your behalf**
+note right: CallSign enforces delegation\nlimits & monitors agent actions
 
 == Phase 4: Automated Shopping Transaction ==
 

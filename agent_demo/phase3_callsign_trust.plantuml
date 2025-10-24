@@ -1,0 +1,53 @@
+@startuml
+title Phase 3: CallSign Establishes Trust Between Agent and User
+
+actor Customer
+entity "CallSign Agent Gateway" as Directory
+entity "Amazon (Merchant)" as Merchant
+entity "Amazon Agent (LLM + Memory)" as Agent
+entity "Callsign SDK" as SDK
+entity "Callsign Delegation Service" as Delegation
+
+== Phase 3: User Downloads App & CallSign Establishes Trust ==
+
+Customer -> Merchant : Download Amazon app (includes signed agent)
+Merchant -> Customer : Install app with embedded agent certificate
+
+Customer -> Agent : Launch app & initiate setup
+Agent -> Customer : Request authentication
+Customer -> Agent : Provide credentials/biometrics
+
+note over Agent, Directory: **CallSign Trust Establishment Process**
+
+Agent -> Directory : Verify agent certificate is still valid
+Directory -> Directory : Check certificate status & revocation list
+Directory -> Agent : Certificate valid ✓
+note right: CallSign confirms agent\nis legitimate & not revoked
+
+Agent -> SDK : Initialize with agent certificate
+SDK -> Directory : Validate agent signature chain (Directory → Merchant → Agent)
+Directory -> Directory : Verify dual signatures (Directory + Merchant)
+Directory -> SDK : Agent authenticity confirmed ✓
+note right: CallSign cryptographically\nverifies agent identity
+
+SDK -> Delegation : Register user-agent binding with certificate
+Delegation -> Delegation : Create user-agent trust relationship
+Delegation -> Directory : Verify agent capabilities & permissions
+Directory -> Delegation : Agent capabilities validated ✓
+Delegation -> SDK : User-agent binding established
+SDK -> Agent : Store trust token & agent certificate
+note right: CallSign creates secure\nUser ↔ Agent binding
+
+Agent -> Customer : **Trust established via CallSign**
+note over Customer, Agent: CallSign guarantees:\n1. Agent is authentic (signed by Directory)\n2. Agent is authorized by Merchant\n3. Agent has not been revoked\n4. Secure User-Agent binding created
+
+Customer -> Agent : "Delegate shopping decisions (limit: $5000)"
+Agent -> Delegation : Request delegation scope with user consent
+Delegation -> Directory : Verify agent capabilities allow delegation
+Directory -> Delegation : Capabilities confirmed (shopping, checkout) ✓
+Delegation -> Delegation : Create delegation policy (limit: $5000)
+Delegation -> Agent : Delegation granted with spending limits
+Agent -> Customer : **Delegation active - I can shop on your behalf**
+note right: CallSign enforces delegation\nlimits & monitors agent actions
+
+@enduml
