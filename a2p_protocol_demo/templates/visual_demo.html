@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A2P Protocol Enhanced Demo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a1a; color: white; }
+        
+        .header { background: #2d2d2d; padding: 20px; text-align: center; border-bottom: 3px solid #4CAF50; }
+        .header h1 { color: #4CAF50; margin-bottom: 10px; }
+        
+        .container { display: grid; grid-template-columns: 250px 1fr 300px; height: calc(100vh - 100px); gap: 10px; }
+        
+        .entities-panel { background: #2d2d2d; padding: 15px; border-right: 2px solid #444; overflow-y: auto; }
+        .metrics-panel { background: #2d2d2d; padding: 15px; border-left: 2px solid #444; overflow-y: auto; }
+        .entity { background: #3d3d3d; margin: 10px 0; padding: 15px; border-radius: 8px; border-left: 4px solid; }
+        .entity.active { border-left-color: #4CAF50; }
+        .entity.inactive { border-left-color: #666; }
+        .entity.revoked { border-left-color: #FF9800; }
+        .entity.blocked { border-left-color: #F44336; }
+        
+        .main-area { display: flex; flex-direction: column; }
+        
+        .controls { background: #2d2d2d; padding: 10px; border-bottom: 1px solid #444; display: flex; flex-wrap: wrap; gap: 5px; }
+        .btn { background: #4CAF50; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .btn:hover { background: #45a049; }
+        .btn.danger { background: #F44336; }
+        .btn.warning { background: #FF9800; }
+        
+        .visualization { flex: 1; position: relative; background: #1a1a1a; overflow: hidden; display: grid; grid-template-rows: 1fr 200px; }
+        .network-view { position: relative; }
+        .charts-area { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; background: #2d2d2d; }
+        
+        .events-log { height: 150px; background: #2d2d2d; border-top: 2px solid #444; overflow-y: auto; padding: 8px; font-size: 11px; }
+        .event { margin: 5px 0; padding: 8px; border-radius: 4px; font-size: 12px; }
+        .event.success { background: #1B5E20; border-left: 3px solid #4CAF50; }
+        .event.error { background: #B71C1C; border-left: 3px solid #F44336; }
+        .event.warning { background: #E65100; border-left: 3px solid #FF9800; }
+        
+        .entity-node { position: absolute; width: 100px; height: 60px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; transition: all 0.3s; font-size: 11px; }
+        .entity-load { width: 80%; height: 4px; background: #333; border-radius: 2px; margin-top: 4px; }
+        .entity-load-bar { height: 100%; background: #4CAF50; border-radius: 2px; transition: width 0.3s; }
+        .entity-node:hover { transform: scale(1.1); }
+        
+        .connection { position: absolute; height: 2px; background: #4CAF50; opacity: 0; transition: opacity 0.5s; }
+        .connection.active { opacity: 1; animation: pulse 1s infinite; }
+        
+        @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+        
+        .message { position: absolute; background: #4CAF50; color: white; padding: 5px 10px; border-radius: 15px; font-size: 11px; opacity: 0; transition: all 1s; }
+        .message.show { opacity: 1; }
+        
+        .status-indicator { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .status-indicator.active { background: #4CAF50; }
+        .status-indicator.inactive { background: #666; }
+        .status-indicator.revoked { background: #FF9800; }
+        .status-indicator.blocked { background: #F44336; }
+        
+        .metric-card { background: #3d3d3d; padding: 10px; border-radius: 6px; margin: 8px 0; }
+        .metric-value { font-size: 18px; font-weight: bold; color: #4CAF50; }
+        .metric-label { font-size: 12px; color: #aaa; }
+        
+        .security-alert { background: #B71C1C; padding: 8px; border-radius: 4px; margin: 4px 0; font-size: 11px; }
+        .security-alert.high { background: #E65100; }
+        .security-alert.critical { background: #B71C1C; animation: blink 1s infinite; }
+        
+        @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0.5; } }
+        
+        .chart-container { background: #3d3d3d; border-radius: 6px; padding: 10px; height: 180px; }
+        .chart-title { color: #fff; font-size: 12px; margin-bottom: 8px; text-align: center; }
+        
+        .topology-node { position: absolute; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
+        .topology-edge { position: absolute; height: 2px; background: #4CAF50; opacity: 0.6; }
+        
+        .connection-strength { font-size: 10px; color: #aaa; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔐 A2P Protocol Enhanced Demo</h1>
+        <p>Real-time visualization with security monitoring, performance metrics & network topology</p>
+        <div style="font-size: 12px; color: #aaa;">Status: <span id="connection-status">Connecting...</span></div>
+    </div>
+    
+    <div class="container">
+        <div class="entities-panel">
+            <h3>System Entities</h3>
+            <div id="entities-list"></div>
+            
+            <h4 style="margin-top: 20px;">Security Alerts</h4>
+            <div id="security-alerts"></div>
+        </div>
+        
+        <div class="main-area">
+            <div class="controls">
+                <button class="btn" onclick="runDemo('merchant_registration')">1. Merchant</button>
+                <button class="btn" onclick="runDemo('agent_registration')">2. Agent</button>
+                <button class="btn warning" onclick="runDemo('malicious_agent')">3. Malicious</button>
+                <button class="btn" onclick="runDemo('legitimate_transaction')">4. Transaction</button>
+                <button class="btn warning" onclick="runDemo('certificate_revocation')">5. Revoke</button>
+                <button class="btn warning" onclick="runDemo('ddos_attack')">🚨 DDoS</button>
+                <button class="btn" onclick="runDemo('multi_agent_scenario')">👥 Multi-Agent</button>
+                <button class="btn" onclick="runDemo('full_scenario')" style="background: #9C27B0;">🎬 Full</button>
+                <button class="btn danger" onclick="clearEvents()">Clear</button>
+            </div>
+            
+            <div class="visualization">
+                <div class="network-view" id="network-view">
+                    <!-- Entity nodes will be positioned here -->
+                </div>
+                <div class="charts-area">
+                    <div class="chart-container">
+                        <div class="chart-title">Performance Metrics</div>
+                        <canvas id="performance-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Network Traffic</div>
+                        <canvas id="traffic-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="events-log" id="events-log">
+                <h4>Event Log</h4>
+                <div id="events-list"></div>
+            </div>
+        </div>
+        
+        <div class="metrics-panel">
+            <h3>Live Metrics</h3>
+            <div id="metrics-list"></div>
+            
+            <h4 style="margin-top: 20px;">Network Topology</h4>
+            <div id="topology-view" style="position: relative; height: 200px; background: #1a1a1a; border-radius: 6px;"></div>
+        </div>
+    </div>
+
+    <script>
+        const entities = {
+            directory: { x: 300, y: 40 },
+            gateway: { x: 300, y: 150 },
+            bank: { x: 450, y: 150 },
+            merchant: { x: 150, y: 150 },
+            agent: { x: 150, y: 260 },
+            malicious: { x: 50, y: 260 }
+        };
+        
+        const socket = io();
+        let performanceChart, trafficChart;
+
+        let currentEntities = {};
+        let eventPolling;
+        let securityAlerts = [];
+        let performanceData = [];
+        let networkTopology = {};
+
+        async function loadEntities() {
+            const response = await fetch('/api/entities');
+            currentEntities = await response.json();
+            renderEntities();
+        }
+        
+        async function loadMetrics() {
+            try {
+                const [securityRes, performanceRes, topologyRes] = await Promise.all([
+                    fetch('/api/security/events'),
+                    fetch('/api/performance/metrics'),
+                    fetch('/api/network/topology')
+                ]);
+                
+                securityAlerts = await securityRes.json();
+                performanceData = await performanceRes.json();
+                networkTopology = await topologyRes.json();
+                
+                renderSecurityAlerts();
+                renderMetrics();
+                renderTopology();
+                updateCharts();
+            } catch (error) {
+                console.error('Error loading metrics:', error);
+            }
+        }
+
+        function renderEntities() {
+            const entitiesList = document.getElementById('entities-list');
+            const networkView = document.getElementById('network-view');
+            
+            entitiesList.innerHTML = '';
+            networkView.innerHTML = '';
+            
+            Object.entries(currentEntities).forEach(([key, entity]) => {
+                // Panel list
+                const entityDiv = document.createElement('div');
+                entityDiv.className = `entity ${entity.status}`;
+                entityDiv.innerHTML = `
+                    <div><span class="status-indicator ${entity.status}"></span>${entity.name}</div>
+                    <div style="font-size: 11px; color: #aaa;">Status: ${entity.status} | Load: ${entity.load || 0}%</div>
+                `;
+                entitiesList.appendChild(entityDiv);
+                
+                // Visualization nodes
+                const node = document.createElement('div');
+                node.className = 'entity-node';
+                node.style.left = entities[key].x + 'px';
+                node.style.top = entities[key].y + 'px';
+                node.style.background = entity.color;
+                node.innerHTML = `
+                    <div>${entity.name.split(' ')[0]}</div>
+                    <div class="entity-load">
+                        <div class="entity-load-bar" style="width: ${entity.load || 0}%"></div>
+                    </div>
+                `;
+                node.id = `node-${key}`;
+                networkView.appendChild(node);
+            });
+        }
+        
+        function renderSecurityAlerts() {
+            const alertsDiv = document.getElementById('security-alerts');
+            alertsDiv.innerHTML = '';
+            
+            securityAlerts.slice(-5).forEach(alert => {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `security-alert ${alert.security_level}`;
+                alertDiv.innerHTML = `
+                    <strong>${alert.source} → ${alert.target}</strong><br>
+                    ${alert.message}<br>
+                    <small>${new Date(alert.timestamp).toLocaleTimeString()}</small>
+                `;
+                alertsDiv.appendChild(alertDiv);
+            });
+        }
+        
+        function renderMetrics() {
+            const metricsDiv = document.getElementById('metrics-list');
+            const latest = performanceData[performanceData.length - 1];
+            
+            if (latest) {
+                metricsDiv.innerHTML = `
+                    <div class="metric-card">
+                        <div class="metric-value">${latest.cpu.toFixed(1)}%</div>
+                        <div class="metric-label">CPU Usage</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${latest.memory.toFixed(1)}%</div>
+                        <div class="metric-label">Memory Usage</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${latest.events_per_sec}</div>
+                        <div class="metric-label">Events/sec</div>
+                    </div>
+                `;
+            }
+        }
+        
+        function renderTopology() {
+            const topologyDiv = document.getElementById('topology-view');
+            topologyDiv.innerHTML = '';
+            
+            const nodePositions = {
+                directory: { x: 150, y: 30 },
+                gateway: { x: 150, y: 100 },
+                bank: { x: 220, y: 100 },
+                merchant: { x: 80, y: 100 },
+                agent: { x: 80, y: 170 },
+                malicious: { x: 20, y: 170 }
+            };
+            
+            // Draw connections
+            Object.entries(networkTopology.connections || {}).forEach(([source, targets]) => {
+                targets.forEach(target => {
+                    if (nodePositions[source] && nodePositions[target]) {
+                        const line = document.createElement('div');
+                        line.className = 'topology-edge';
+                        const x1 = nodePositions[source].x;
+                        const y1 = nodePositions[source].y;
+                        const x2 = nodePositions[target].x;
+                        const y2 = nodePositions[target].y;
+                        
+                        const length = Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+                        const angle = Math.atan2(y2-y1, x2-x1) * 180 / Math.PI;
+                        
+                        line.style.left = x1 + 'px';
+                        line.style.top = y1 + 'px';
+                        line.style.width = length + 'px';
+                        line.style.transform = `rotate(${angle}deg)`;
+                        line.style.transformOrigin = '0 50%';
+                        
+                        topologyDiv.appendChild(line);
+                    }
+                });
+            });
+            
+            // Draw nodes
+            Object.entries(nodePositions).forEach(([key, pos]) => {
+                if (currentEntities[key]) {
+                    const node = document.createElement('div');
+                    node.className = 'topology-node';
+                    node.style.left = pos.x + 'px';
+                    node.style.top = pos.y + 'px';
+                    node.style.background = currentEntities[key].color;
+                    node.innerHTML = key.substring(0, 3).toUpperCase();
+                    topologyDiv.appendChild(node);
+                }
+            });
+        }
+
+        async function runDemo(scenario) {
+            const response = await fetch(`/api/demo/${scenario}`);
+            const result = await response.json();
+            console.log('Demo result:', result);
+            
+            if (!eventPolling) {
+                startEventPolling();
+            }
+        }
+
+        async function clearEvents() {
+            await fetch('/api/clear');
+            document.getElementById('events-list').innerHTML = '';
+        }
+
+        function startEventPolling() {
+            eventPolling = setInterval(async () => {
+                await loadEntities();
+                await loadEvents();
+            }, 1000);
+        }
+
+        async function loadEvents() {
+            const response = await fetch('/api/events');
+            const events = await response.json();
+            
+            const eventsList = document.getElementById('events-list');
+            eventsList.innerHTML = '';
+            
+            events.slice(-10).forEach(event => {
+                const eventDiv = document.createElement('div');
+                eventDiv.className = `event ${event.status}`;
+                eventDiv.innerHTML = `
+                    <strong>${event.source} → ${event.target}</strong>: ${event.message}
+                    <div style="font-size: 10px; color: #ccc;">${new Date(event.timestamp).toLocaleTimeString()}</div>
+                `;
+                eventsList.appendChild(eventDiv);
+                
+                // Show visual connection
+                showConnection(event.source, event.target, event.status);
+            });
+            
+            eventsList.scrollTop = eventsList.scrollHeight;
+        }
+
+        function showConnection(source, target, status) {
+            const sourceNode = document.getElementById(`node-${source}`);
+            const targetNode = document.getElementById(`node-${target}`);
+            
+            if (!sourceNode || !targetNode) return;
+            
+            const sourceRect = sourceNode.getBoundingClientRect();
+            const targetRect = targetNode.getBoundingClientRect();
+            const vizRect = document.getElementById('network-view').getBoundingClientRect();
+            
+            const x1 = sourceRect.left - vizRect.left + sourceRect.width / 2;
+            const y1 = sourceRect.top - vizRect.top + sourceRect.height / 2;
+            const x2 = targetRect.left - vizRect.left + targetRect.width / 2;
+            const y2 = targetRect.top - vizRect.top + targetRect.height / 2;
+            
+            const length = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+            const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+            
+            const connection = document.createElement('div');
+            connection.className = `connection active`;
+            connection.style.left = x1 + 'px';
+            connection.style.top = y1 + 'px';
+            connection.style.width = length + 'px';
+            connection.style.transformOrigin = '0 50%';
+            connection.style.transform = `rotate(${angle}deg)`;
+            connection.style.background = status === 'error' ? '#F44336' : status === 'warning' ? '#FF9800' : '#4CAF50';
+            
+            document.getElementById('network-view').appendChild(connection);
+            
+            setTimeout(() => {
+                connection.remove();
+            }, 1500);
+        }
+        
+        function initCharts() {
+            const performanceCtx = document.getElementById('performance-chart').getContext('2d');
+            const trafficCtx = document.getElementById('traffic-chart').getContext('2d');
+            
+            performanceChart = new Chart(performanceCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'CPU %',
+                        data: [],
+                        borderColor: '#4CAF50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'Memory %',
+                        data: [],
+                        borderColor: '#2196F3',
+                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, max: 100 }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#fff', font: { size: 10 } } }
+                    }
+                }
+            });
+            
+            trafficChart = new Chart(trafficCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#00BCD4', '#F44336']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#fff', font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+        
+        function updateCharts() {
+            if (performanceChart && performanceData.length > 0) {
+                const latest10 = performanceData.slice(-10);
+                performanceChart.data.labels = latest10.map(d => new Date(d.timestamp).toLocaleTimeString());
+                performanceChart.data.datasets[0].data = latest10.map(d => d.cpu);
+                performanceChart.data.datasets[1].data = latest10.map(d => d.memory);
+                performanceChart.update('none');
+            }
+            
+            if (trafficChart && networkTopology.traffic) {
+                const traffic = Object.entries(networkTopology.traffic);
+                trafficChart.data.labels = traffic.map(([key]) => key.replace(',', ' → '));
+                trafficChart.data.datasets[0].data = traffic.map(([, value]) => value);
+                trafficChart.update('none');
+            }
+        }
+
+        // WebSocket event handlers
+        socket.on('connect', () => {
+            document.getElementById('connection-status').textContent = 'Connected';
+            document.getElementById('connection-status').style.color = '#4CAF50';
+        });
+        
+        socket.on('disconnect', () => {
+            document.getElementById('connection-status').textContent = 'Disconnected';
+            document.getElementById('connection-status').style.color = '#F44336';
+        });
+        
+        socket.on('new_event', (event) => {
+            // Handle real-time events
+            showConnection(event.source, event.target, event.status);
+        });
+        
+        socket.on('performance_update', (data) => {
+            currentEntities = data.entities;
+            renderEntities();
+        });
+        
+        // Initialize
+        loadEntities();
+        loadMetrics();
+        initCharts();
+        
+        // Auto-refresh
+        setInterval(() => {
+            loadEntities();
+            loadMetrics();
+        }, 3000);
+    </script>
+</body>
+</html>

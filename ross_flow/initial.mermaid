@@ -1,0 +1,65 @@
+sequenceDiagram
+    autonumber
+    participant U as User (CallSign App / Portal)
+    participant OA as OpenAI Agent Runtime (Tenant/Project)
+    participant OP as OpenAI Control Plane (Client Mgmt)
+    participant CS as CallSign AS + Risk + Policy
+    participant B as Bank (Resource Server + Receipts)
+    participant BI as Bank Introspection / Trust (optional)
+    participant RK as CallSign Key Mgmt (JWKS/HSM)
+    participant BK as Bank Key Mgmt (JWKS/HSM)
+    participant DID as DID/VC Registry (optional)
+
+    %% --- Provider <-> CallSign Trust Bootstrap ---
+    Note over OP,CS: 1) Dynamic Client Registration with software identity
+    OP->>CS: Software Statement Assertion (SSA) + Client Metadata (mTLS, JWK/JWKS, redirect_uris='urn:push')
+    CS->>RK: Validate SSA issuer/trust, store client + policy defaults
+    CS-->>OP: client_id, token/par endpoints, scopes, RAR types, DPoP/mTLS requirements
+
+    alt Optional workload identity attestation
+        Note over OA,CS: 2) Workload/runtime attestation (SPIFFE/TEE)
+        OA->>CS: Attestation evidence (SVID/TEE quote + nonce)
+        CS-->>OA: Attestation acceptance + runtime binding policy
+    end
+
+    %% --- CallSign <-> Bank Trust & Semantics ---
+    Note over CS,B: 3) Token trust + API semantics
+    CS->>BK: Publish AS signing keys (JWKS), key IDs, rotation policy
+    BK-->>CS: Trust anchor acceptance; audience scope map; cnf mode (DPoP|mTLS)
+    CS-->>B: RAR schema catalog (payment_initiation, fields, dynamic linking rules)
+    B-->>CS: Schema acceptance + contract version
+    opt Introspection mode
+        CS-->>BI: Introspection endpoint, client credentials
+        BI-->>CS: Introspection client registration (mTLS/JWT client auth)
+    end
+    opt Signed receipts
+        B-->>CS: Receipt signing JWKS + format (JWS payload hash fields)
+    end
+
+    %% --- User Enrollment at CallSign ---
+    Note over U,CS: 4) Identity proofing & device binding
+    U->>CS: Enroll identity (KYC/IDV as applicable)
+    CS-->>U: App activation (link code / QR)
+    U->>CS: WebAuthn/FIDO2 registration (biometric/PIN)
+    CS->>RK: Bind authenticator to user; risk posture baseline
+
+    %% --- Delegation Policy Creation ---
+    Note over U,CS: 5) Create policy constraints for Agent
+    U->>CS: Define delegation (limits, merchants/MCC allow-list, daily cap, window, geography, SCA rules)
+    CS-->>U: Delegation confirmation (policy_id, revocation handle, audit reference)
+
+    %% --- Capability Materialization (optional VC) ---
+    alt VC-based capability (portable)
+        Note over CS,OA: 6) Issue VC to Agent DID/key
+        OA->>DID: Publish/resolve Agent DID (public key)
+        CS-->>OA: PaymentDelegationCredential (VC, signed by CallSign DID)
+        CS->>DID: (optional) Record VC status endpoint for revocation
+    else OAuth-native (server-side policy only)
+        CS->>CS: Store policy server-side bound to client_id + agent key thumbprint (jkt/mTLS cert)
+    end
+
+    %% --- Ops/Audit/Telemetry Channels ---
+    Note over OA,CS,B: 7) Observability & compliance
+    CS-->>B: Telemetry contract (txn_id correlation, event topics)
+    B-->>CS: Event subscription acknowledgement
+    CS-->>U: Notification preferences (receipts, anomalies)

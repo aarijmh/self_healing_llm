@@ -14,22 +14,90 @@ entity "Callsign Backend (Token Vault)" as Backend
 entity "Callsign Payment Protocol" as PaymentProtocol
 entity "Bank"
 
-== Phase 1: Merchant Registration with Agent Directory ==
+== Phase 1: Merchant Registration with Agent Gateway ==
 
-Merchant -> Directory : Register merchant identity
+Merchant -> Directory : POST /register/merchant
+note right of Directory
+**Request Headers:**
+Content-Type: application/json
+X-API-Version: 2.0
+
+**Payload:**
+{
+  "merchant_id": "amazon_us",
+  "business_license": "BL-123456789",
+  "domain": "amazon.com",
+  "public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...",
+  "proof_of_domain": "dns_txt_record_hash"
+}
+end note
+
 Directory -> Directory : Verify merchant credentials (business license, domain ownership)
 Directory -> Directory : Generate merchant certificate & signing key
-Directory -> Merchant : **Merchant authenticated & registered**
-note right: Merchant can now issue agents\nwith Directory's blessing
+
+Directory -> Merchant : **Merchant Certificate Response**
+note right of Merchant
+**Response Headers:**
+Content-Type: application/json
+X-Certificate-Chain: base64_encoded_chain
+
+**Payload:**
+{
+  "status": "registered",
+  "merchant_cert": {
+    "cert_id": "CERT_AMZ_001",
+    "public_key": "merchant_public_key",
+    "signature": "gateway_signature_of_cert",
+    "expires_at": "2025-12-31T23:59:59Z"
+  },
+  "signing_key": "merchant_private_key_encrypted"
+}
+end note
 
 == Phase 2: Agent Registration & Signing ==
 
 Merchant -> Agent : Develop agent with capabilities (shopping, checkout)
-Merchant -> Directory : Register agent (agent_id, capabilities, scopes)
+
+Merchant -> Directory : POST /register/agent
+note right of Directory
+**Request Headers:**
+Authorization: Bearer merchant_jwt_token
+X-Merchant-Signature: HMAC-SHA256(payload)
+
+**Payload:**
+{
+  "agent_id": "amazon_shopping_agent_v2.1",
+  "merchant_id": "amazon_us",
+  "capabilities": ["payment", "search", "checkout"],
+  "scopes": ["user_delegation", "transaction_processing"],
+  "agent_hash": "sha256_of_agent_binary",
+  "merchant_signature": "RSA_signature_by_merchant"
+}
+end note
+
 Directory -> Directory : Validate agent metadata & merchant signature
-Directory -> Directory : Sign agent with Directory's private key
-Directory -> Merchant : **Agent certificate (dual-signed: Merchant + Directory)**
-note right: Agent certificate contains:\n- Agent ID\n- Merchant ID\n- Capabilities (payment, search, checkout)\n- Expiration date\n- Revocation endpoint
+Directory -> Directory : Sign agent with Gateway's private key
+
+Directory -> Merchant : **Agent Certificate (Dual-Signed)**
+note right of Merchant
+**Response Headers:**
+X-Agent-Certificate: base64_encoded_cert
+X-Revocation-Endpoint: https://gateway.callsign.com/revoke
+
+**Agent Certificate Payload:**
+{
+  "agent_cert": {
+    "agent_id": "amazon_shopping_agent_v2.1",
+    "merchant_id": "amazon_us",
+    "capabilities": ["payment", "search", "checkout"],
+    "issued_at": "2024-01-15T10:00:00Z",
+    "expires_at": "2025-01-15T10:00:00Z",
+    "merchant_signature": "merchant_rsa_signature",
+    "gateway_signature": "gateway_ecdsa_signature",
+    "revocation_endpoint": "/revoke/agent/amazon_shopping_agent_v2.1"
+  }
+}
+end note
 
 Merchant -> Merchant : Package agent with certificate into mobile app
 
@@ -42,77 +110,240 @@ Customer -> Agent : Launch app & initiate setup
 Agent -> Customer : Request authentication
 Customer -> Agent : Provide credentials/biometrics
 
-note over Agent, Directory: **CallSign Trust Establishment Process**
+note over Agent, Gateway: **CallSign Trust Establishment Process**
 
-Agent -> Directory : Verify agent certificate is still valid
-Directory -> Directory : Check certificate status & revocation list
-Directory -> Agent : Certificate valid ✓
-note right: CallSign confirms agent\nis legitimate & not revoked
+Agent -> Directory : GET /validate/certificate
+note right of Directory
+**Request Headers:**
+X-Agent-Certificate: base64_encoded_cert
+X-Agent-ID: amazon_shopping_agent_v2.1
+
+**Response:**
+{
+  "status": "valid",
+  "cert_status": "active",
+  "revocation_check": "passed",
+  "timestamp": "2024-01-20T14:30:00Z"
+}
+end note
 
 Agent -> SDK : Initialize with agent certificate
-SDK -> Directory : Validate agent signature chain (Directory → Merchant → Agent)
-Directory -> Directory : Verify dual signatures (Directory + Merchant)
-Directory -> SDK : Agent authenticity confirmed ✓
-note right: CallSign cryptographically\nverifies agent identity
 
-SDK -> Delegation : Register user-agent binding with certificate
-Delegation -> Delegation : Create user-agent trust relationship
-Delegation -> Directory : Verify agent capabilities & permissions
-Directory -> Delegation : Agent capabilities validated ✓
-Delegation -> SDK : User-agent binding established
-SDK -> Agent : Store trust token & agent certificate
-note right: CallSign creates secure\nUser ↔ Agent binding
+SDK -> Directory : POST /validate/signature_chain
+note right of Directory
+**Payload:**
+{
+  "agent_cert": "base64_agent_certificate",
+  "challenge": "random_nonce_12345",
+  "signatures": {
+    "merchant_sig": "merchant_rsa_signature",
+    "gateway_sig": "gateway_ecdsa_signature"
+  }
+}
+
+**Response:**
+{
+  "validation_result": "authentic",
+  "signature_chain_valid": true,
+  "trust_score": 0.98
+}
+end note
+
+SDK -> Delegation : POST /bind/user_agent
+note right of Delegation
+**Request Headers:**
+Authorization: Bearer user_session_token
+X-Agent-Certificate: base64_encoded_cert
+
+**Payload:**
+{
+  "user_id": "user_12345",
+  "agent_id": "amazon_shopping_agent_v2.1",
+  "biometric_hash": "sha256_face_template",
+  "device_fingerprint": "device_unique_id"
+}
+
+**Response:**
+{
+  "binding_id": "BIND_789ABC",
+  "trust_token": "eyJhbGciOiJFUzI1NiJ9...",
+  "expires_at": "2024-02-20T14:30:00Z"
+}
+end note
 
 Agent -> Customer : **Trust established via CallSign**
-note over Customer, Agent: CallSign guarantees:\n1. Agent is authentic (signed by Directory)\n2. Agent is authorized by Merchant\n3. Agent has not been revoked\n4. Secure User-Agent binding created
+note over Customer, Agent: CallSign guarantees:\n1. Agent is authentic (signed by Gateway)\n2. Agent is authorized by Merchant\n3. Agent has not been revoked\n4. Secure User-Agent binding created
 
 Customer -> Agent : "Delegate shopping decisions (limit: $5000)"
-Agent -> Delegation : Request delegation scope with user consent
-Delegation -> Directory : Verify agent capabilities allow delegation
-Directory -> Delegation : Capabilities confirmed (shopping, checkout) ✓
-Delegation -> Delegation : Create delegation policy (limit: $5000)
-Delegation -> Agent : Delegation granted with spending limits
+
+Agent -> Delegation : POST /delegate/permissions
+note right of Delegation
+**Request Headers:**
+Authorization: Bearer trust_token
+X-User-Consent: signed_consent_hash
+
+**Payload:**
+{
+  "delegation_scope": {
+    "spending_limit": 5000.00,
+    "currency": "USD",
+    "categories": ["electronics", "books", "home"],
+    "duration": "30_days"
+  },
+  "user_signature": "biometric_consent_signature"
+}
+
+**Response:**
+{
+  "delegation_id": "DEL_456XYZ",
+  "status": "active",
+  "remaining_limit": 5000.00,
+  "policy_token": "eyJkZWxlZ2F0aW9uX2lkIjoi..."
+}
+end note
+
 Agent -> Customer : **Delegation active - I can shop on your behalf**
-note right: CallSign enforces delegation\nlimits & monitors agent actions
 
 == Phase 4: Automated Shopping Transaction ==
 
 Customer -> Agent : "Buy me a laptop under $2000"
 Agent -> Agent : Parse intent & verify delegation authority
-Agent -> Directory : Validate session & agent certificate
-Directory -> Agent : Session valid, certificate not revoked
+Agent -> Directory : GET /session/validate
+note right of Directory
+**Request Headers:**
+Authorization: Bearer policy_token
+X-Session-ID: session_12345
+
+**Response:**
+{
+  "session_valid": true,
+  "certificate_status": "active",
+  "remaining_delegation": 5000.00
+}
+end note
 
 Agent -> Agent : Search product catalog
 Agent -> Agent : Find Dell XPS 15 ($1,899)
 Agent -> Customer : "Found Dell XPS 15 for $1,899. Proceeding with purchase."
 
 Agent -> Checkout : Navigate to checkout (automated)
-Checkout -> Gateway : Transaction request with agent certificate
+Checkout -> Gateway : POST /transaction/initiate
+note right of Gateway
+**Request Headers:**
+X-Agent-Certificate: base64_encoded_cert
+X-Transaction-Type: agent_automated
+Content-Type: application/json
+
+**Payload:**
+{
+  "transaction_id": "TXN_789DEF",
+  "amount": 1899.00,
+  "currency": "USD",
+  "merchant_id": "amazon_us",
+  "agent_attestation": {
+    "agent_id": "amazon_shopping_agent_v2.1",
+    "delegation_id": "DEL_456XYZ",
+    "user_consent_hash": "sha256_consent"
+  }
+}
+end note
+
 Gateway -> Gateway : Detect AI agent via certificate
-Gateway -> Directory : Verify agent certificate authenticity
-Directory -> Gateway : Certificate valid, merchant trusted
+
+Gateway -> Directory : POST /verify/agent_transaction
+note right of Directory
+**Payload:**
+{
+  "agent_cert": "base64_certificate",
+  "transaction_amount": 1899.00,
+  "delegation_check": true
+}
+
+**Response:**
+{
+  "certificate_valid": true,
+  "merchant_trusted": true,
+  "delegation_sufficient": true,
+  "risk_score": 0.15
+}
+end note
 
 Gateway -> Gateway : Enhanced verification (agent-specific rules)
 Gateway -> Gateway : Check delegation limits ($1,899 < $5,000 ✓)
 Gateway -> Gateway : Behavioral analysis (agent pattern recognition)
 
 alt Agent Certificate Valid & Within Limits
-    Gateway -> Customer : Step-up authentication (biometric)
-    Customer -> Gateway : Face scan confirmation
-    Gateway -> Gateway : Authorization decision
-    Gateway -> Checkout : Proceed with transaction
+    Gateway -> Customer : POST /auth/stepup (biometric challenge)
+    note right of Customer
+    **Challenge Payload:**
+    {
+      "challenge_type": "biometric_face",
+      "nonce": "random_challenge_67890",
+      "timeout": 30
+    }
+    end note
+    
+    Customer -> Gateway : Biometric response
+    note right of Gateway
+    **Response Payload:**
+    {
+      "biometric_template": "encrypted_face_data",
+      "challenge_response": "signed_nonce_67890",
+      "device_attestation": "tpm_signature"
+    }
+    end note
+    
+    Gateway -> Checkout : Transaction authorized
+    note right of Checkout
+    **Authorization Response:**
+    {
+      "status": "authorized",
+      "auth_token": "eyJhdXRoX3Rva2VuIjoi...",
+      "transaction_id": "TXN_789DEF"
+    }
+    end note
 else Certificate Revoked or Limits Exceeded
     Gateway -> Agent : Transaction blocked
     Agent -> Customer : "Cannot complete - requires manual approval"
 end
 
-Checkout -> PaymentProtocol : Request payment authorization with agent attestation
-PaymentProtocol -> Bank : Authorize payment (agent certificate included)
-Bank -> Bank : Verify agent certificate from Directory
-Bank -> Bank : Validate delegation authority
-Bank -> PaymentProtocol : Confirm authorization
-PaymentProtocol -> Backend : Store token with agent binding
-Backend -> PaymentProtocol : Token stored
+Checkout -> PaymentProtocol : POST /payment/authorize
+note right of PaymentProtocol
+**Request Headers:**
+Authorization: Bearer auth_token
+X-Agent-Attestation: agent_signature
+
+**Payload:**
+{
+  "transaction_id": "TXN_789DEF",
+  "amount": 1899.00,
+  "payment_method": "stored_card_token",
+  "agent_certificate": "base64_agent_cert",
+  "delegation_proof": "signed_delegation_token"
+}
+end note
+
+PaymentProtocol -> Bank : Forward payment with agent context
+note right of Bank
+**Bank API Payload:**
+{
+  "amount": 1899.00,
+  "merchant_id": "amazon_us",
+  "agent_context": {
+    "agent_certified": true,
+    "gateway_verified": true,
+    "delegation_valid": true
+  },
+  "risk_indicators": {
+    "automated_transaction": true,
+    "user_authenticated": true
+  }
+}
+end note
+
+Bank -> PaymentProtocol : Payment authorized
+PaymentProtocol -> Backend : Store transaction with agent binding
+Backend -> PaymentProtocol : Token stored with agent metadata
 Agent -> Customer : **Payment successful - Order placed automatically**
 
 == Phase 5: Subsequent Automated Transaction (30 Days Later) ==
@@ -143,7 +374,7 @@ alt Token Valid & Within Delegation Limits
     Gateway -> Gateway : Authorization approved (no step-up needed)
     Agent -> PaymentProtocol : Use token to initiate payment
     PaymentProtocol -> Bank : Process payment with agent attestation
-    Bank -> Bank : Validate agent certificate from Directory
+    Bank -> Bank : Validate agent certificate from Gateway
     Bank -> PaymentProtocol : Confirm payment
     PaymentProtocol -> Agent : Payment success
     Agent -> Customer : **Mouse ordered automatically - No interaction needed!**
@@ -154,16 +385,62 @@ end
 
 == Phase 6: Agent Revocation Scenario ==
 
-note over Directory: Security incident detected:\nAgent vulnerability discovered
+note over Gateway: Security incident detected:\nAgent vulnerability discovered
 
-Directory -> Directory : Revoke agent certificate
-Directory -> Directory : Update revocation list
-Directory -> Merchant : Notify of revocation
-Directory -> Bank : Broadcast revocation to payment network
+Directory -> Directory : POST /revoke/certificate
+note right of Directory
+**Revocation Payload:**
+{
+  "cert_id": "CERT_AMZ_001",
+  "agent_id": "amazon_shopping_agent_v2.1",
+  "revocation_reason": "security_vulnerability",
+  "effective_immediately": true,
+  "revoked_at": "2024-01-25T09:15:00Z"
+}
+end note
+
+Directory -> Directory : Update revocation list (CRL)
+
+Directory -> Merchant : POST /notify/revocation
+note right of Merchant
+**Notification Payload:**
+{
+  "event_type": "agent_revoked",
+  "agent_id": "amazon_shopping_agent_v2.1",
+  "revocation_reason": "security_vulnerability",
+  "action_required": "immediate_update",
+  "new_agent_version": "amazon_shopping_agent_v2.2"
+}
+end note
+
+Directory -> Bank : POST /broadcast/revocation
+note right of Bank
+**Revocation Broadcast:**
+{
+  "revoked_certificates": [
+    {
+      "agent_id": "amazon_shopping_agent_v2.1",
+      "merchant_id": "amazon_us",
+      "revoked_at": "2024-01-25T09:15:00Z"
+    }
+  ],
+  "block_transactions": true
+}
+end note
 
 Customer -> Agent : "Buy headphones"
-Agent -> Directory : Validate certificate
-Directory -> Agent : **Certificate REVOKED**
+
+Agent -> Directory : GET /validate/certificate
+note right of Directory
+**Validation Response:**
+{
+  "status": "REVOKED",
+  "revocation_reason": "security_vulnerability",
+  "revoked_at": "2024-01-25T09:15:00Z",
+  "update_required": true
+}
+end note
+
 Agent -> Customer : "Agent disabled - Please update app"
 Agent -> Agent : Disable all payment capabilities
 

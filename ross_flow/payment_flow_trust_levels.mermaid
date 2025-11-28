@@ -1,0 +1,56 @@
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor': '#ffffff', 'primaryTextColor': '#000000', 'primaryBorderColor': '#000000', 'lineColor': '#000000', 'secondaryColor': '#ffffff', 'tertiaryColor': '#ffffff', 'background': '#ffffff', 'mainBkg': '#ffffff', 'secondBkg': '#ffffff', 'tertiaryBkg': '#ffffff'}}}%%
+sequenceDiagram
+    autonumber
+    participant OA as OpenAI Agent Runtime
+    participant CS as CallSign AS + Risk Engine
+    participant U as User (CallSign App)
+    participant B as Bank (Payment API)
+    participant BI as Bank Introspection (optional)
+
+    rect rgb(173, 216, 230)
+    Note over OA,CS: 1) Pushed Authorization Request (PAR)
+    OA->>CS: PAR (RAR in JAR), DPoP/mTLS, (optional VC capability presentation)
+    Note right of CS: L2: Identity & Delegation Trust
+    CS->>CS: Verify client, DPoP `jkt`/cert, attestation (if bound), validate RAR vs policy
+    Note right of CS: L4: Regulatory/Compliance Trust
+    Note right of CS: L3: Behavioral Trust
+    CS->>CS: Risk evaluation (device reputation, IP/ASN, velocity, merchant profile)
+    end
+
+    rect rgb(144, 238, 144)
+    Note over U,CS: 2) Step-up (policy-/risk-based)
+    Note right of CS: L4: Regulatory/Compliance Trust
+    CS-->>U: Push challenge (dynamic linking: amount, currency, merchant, caps)
+    Note right of CS: L2: Identity & Delegation Trust
+    U-->>CS: Approve via WebAuthn/FIDO2 (user presence)
+    CS->>CS: Bind txn_id to approved RAR store authorization record
+    end
+
+    rect rgb(255, 182, 193)
+    Note over OA,CS: 3) Token issuance (short-lived, sender-constrained)
+    Note right of CS: L2: Identity & Delegation Trust
+    CS-->>OA: Access Token (DPoP or mTLS-bound RAR-embedded exp~2-5 min jti)
+    end
+
+    rect rgb(255, 255, 224)
+    Note over OA,B: 4) Payment execution at Bank
+    OA->>B: POST /payments (Authorization: DPoP <token> + DPoP proof, payload == RAR)
+    par Optional introspection
+        B->>BI: Introspect token
+        BI-->>B: Active + claims (scope, rar, cnf, aud)
+    and Optional risk callback
+        Note right of CS: L3: Behavioral Trust
+        B->>CS: Risk/advice check (txn_id)
+        CS-->>B: Decision / score
+    end
+    B->>B: Validate token signature/audience, cnf binding (DPoP/mTLS), RAR == payload
+    B-->>OA: Result + signed receipt (JWS with payload hash, txn_id, timestamp)
+    Note right of CS: L4: Regulatory/Compliance Trust
+    B-->>CS: Telemetry event (txn_id, status, receipt hash)
+    CS-->>U: Confirmation / receipt
+    end
+
+    Note over OA,BI: CallSign Trust Levels Legend:
+    Note over OA,BI: L2 (Blue) - Identity & Delegation Trust
+    Note over OA,BI: L3 (Yellow) - Behavioral Trust  
+    Note over OA,BI: L4 (Green/Pink) - Regulatory/Compliance Trust

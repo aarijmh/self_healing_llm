@@ -1,0 +1,50 @@
+
+flowchart TD
+    %% Entry Point
+    A[User Login] --> B[Passive Checks Start]
+
+    %% Signal Collection Layer
+    B --> C[Signal Collection Layer]
+    C --> C1[Behavioral Biometrics: Typing, Mouse, Scroll]
+    C --> C2[Device Fingerprinting: Browser, OS, Hardware]
+    C --> C3[Network Signals: IP, Geolocation, TLS]
+    C --> C4[Text Analysis: Stylometry, Token Entropy]
+
+    %% Backend Processing
+    C --> D[Data Ingestion Layer]
+    D --> E[Risk Scoring Engine]
+    E --> F[ML Anomaly Detection Model]
+    F --> G{Risk Level Decision}
+
+    %% Risk Levels
+    G -->|Low Risk| H[No Friction: Normal Flow]
+    G -->|Medium Risk| I[Adaptive Micro-Challenge: Embedded UI]
+    G -->|High Risk| J[Strong Verification: OTP, Selfie]
+
+    %% Continuous Monitoring
+    H --> K[Continuous Monitoring Loop]
+    I --> K
+    J --> K
+    K -->|Periodic Risk Recalculation| E
+    K -->|Session Ends| L[End Session]
+
+    %% Grouping
+    subgraph Client Side
+        C1
+        C2
+        C3
+        C4
+    end
+
+    subgraph Backend
+        D
+        E
+        F
+        G
+    end
+
+    subgraph Adaptive Response Layer
+        H
+        I
+        J
+    end

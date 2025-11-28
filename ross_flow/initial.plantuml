@@ -1,0 +1,64 @@
+@startuml
+!theme plain
+autonumber
+
+participant "User\n(CallSign App / Portal)" as U
+participant "OpenAI Agent Runtime\n(Tenant/Project)" as OA
+participant "OpenAI Control Plane\n(Client Mgmt)" as OP
+participant "CallSign AS + Risk + Policy" as CS
+participant "Bank\n(Resource Server + Receipts)" as B
+participant "Bank Introspection / Trust\n(optional)" as BI
+participant "CallSign Key Mgmt\n(JWKS/HSM)" as RK
+participant "Bank Key Mgmt\n(JWKS/HSM)" as BK
+participant "DID/VC Registry\n(optional)" as DID
+
+note over OP,CS: 1. Dynamic Client Registration with software identity
+OP -> CS: Software Statement Assertion (SSA) + Client Metadata\n(mTLS, JWK/JWKS, redirect_uris='urn:push')
+CS -> RK: Validate SSA issuer/trust, store client + policy defaults
+CS --> OP: client_id, token/par endpoints, scopes,\nRAR types, DPoP/mTLS requirements
+
+alt Optional workload identity attestation
+    note over OA,CS: 2. Workload/runtime attestation (SPIFFE/TEE)
+    OA -> CS: Attestation evidence (SVID/TEE quote + nonce)
+    CS --> OA: Attestation acceptance + runtime binding policy
+end
+
+note over CS,B: 3. Token trust + API semantics
+CS -> BK: Publish AS signing keys (JWKS), key IDs, rotation policy
+BK --> CS: Trust anchor acceptance; audience scope map;\ncnf mode (DPoP|mTLS)
+CS --> B: RAR schema catalog (payment_initiation, fields,\ndynamic linking rules)
+B --> CS: Schema acceptance + contract version
+
+opt Introspection mode
+    CS --> BI: Introspection endpoint, client credentials
+    BI --> CS: Introspection client registration (mTLS/JWT client auth)
+end
+
+opt Signed receipts
+    B --> CS: Receipt signing JWKS + format\n(JWS payload hash fields)
+end
+
+note over U,CS: 4. Identity proofing & device binding
+U -> CS: Enroll identity (KYC/IDV as applicable)
+CS --> U: App activation (link code / QR)
+U -> CS: WebAuthn/FIDO2 registration (biometric/PIN)
+CS -> RK: Bind authenticator to user; risk posture baseline
+
+note over U,CS: 5. Create policy constraints for Agent
+U -> CS: Define delegation (limits, merchants/MCC allow-list,\ndaily cap, window, geography, SCA rules)
+CS --> U: Delegation confirmation (policy_id, revocation handle,\naudit reference)
+
+alt VC-based capability (portable)
+    note over CS,OA: 6. Issue VC to Agent DID/key
+    OA -> DID: Publish/resolve Agent DID (public key)
+    CS --> OA: PaymentDelegationCredential (VC, signed by CallSign DID)
+    CS -> DID: (optional) Record VC status endpoint for revocation
+else OAuth-native (server-side policy only)
+    CS -> CS: Store policy server-side bound to client_id +\nagent key thumbprint (jkt/mTLS cert)
+end
+
+CS --> B: Telemetry contract (txn_id correlation, event topics)
+B --> CS: Event subscription acknowledgement
+CS --> U: Notification preferences (receipts, anomalies)
+
+@enduml

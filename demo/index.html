@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CallSign Trust Flow Demo</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CallSign Trust Gateway Flow Demo</h1>
+            <div class="controls">
+                <button id="startDemo">Start Demo</button>
+                <button id="resetDemo">Reset</button>
+                <button id="pauseDemo">Pause</button>
+            </div>
+        </header>
+
+        <div class="flow-container">
+            <div class="participants">
+                <div class="participant" id="user">
+                    <div class="participant-icon">👤</div>
+                    <div class="participant-name">User<br>(CallSign App)</div>
+                </div>
+                <div class="participant" id="openai">
+                    <div class="participant-icon">🤖</div>
+                    <div class="participant-name">OpenAI Agent<br>Runtime</div>
+                </div>
+                <div class="participant" id="callsign">
+                    <div class="participant-icon">🛡️</div>
+                    <div class="participant-name">CallSign Trust<br>Gateway</div>
+                </div>
+                <div class="participant" id="bank">
+                    <div class="participant-icon">🏦</div>
+                    <div class="participant-name">Bank API<br>Gateway</div>
+                </div>
+                <div class="participant" id="monitoring">
+                    <div class="participant-icon">📊</div>
+                    <div class="participant-name">Monitoring<br>& Audit</div>
+                </div>
+            </div>
+
+            <div class="flow-steps">
+                <div class="step-container" id="step-container"></div>
+            </div>
+
+            <div class="message-display" id="messageDisplay">
+                <h3>Current Step:</h3>
+                <div id="currentMessage">Click "Start Demo" to begin</div>
+            </div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+            <div class="progress-text" id="progressText">0 / 0</div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

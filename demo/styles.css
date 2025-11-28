@@ -1,0 +1,289 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    color: #333;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+header h1 {
+    color: white;
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.controls button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 25px;
+    background: white;
+    color: #667eea;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.controls button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+.flow-container {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    margin-bottom: 20px;
+}
+
+.participants {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    position: relative;
+}
+
+.participant {
+    text-align: center;
+    position: relative;
+    flex: 1;
+    max-width: 150px;
+}
+
+.participant-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 50%;
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+
+.participant.active .participant-icon {
+    background: #667eea;
+    transform: scale(1.1);
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+}
+
+.participant-name {
+    font-weight: bold;
+    font-size: 0.9rem;
+    line-height: 1.3;
+}
+
+.flow-steps {
+    min-height: 300px;
+    position: relative;
+    margin-bottom: 30px;
+}
+
+.step {
+    display: flex;
+    align-items: flex-start;
+    margin: 10px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    opacity: 0.3;
+    transition: all 0.5s ease;
+    border-left: 4px solid #ddd;
+}
+
+.step.active {
+    opacity: 1;
+    background: #e3f2fd;
+    border-left-color: #2196f3;
+    transform: translateX(10px);
+}
+
+.step.completed {
+    opacity: 0.8;
+    background: #e8f5e8;
+    border-left-color: #4caf50;
+}
+
+.step-number {
+    background: #667eea;
+    color: white;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-right: 15px;
+    margin-top: 5px;
+    flex-shrink: 0;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.step-description {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.step-payload {
+    background: #f0f8ff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: #2c5aa0;
+    border-left: 3px solid #667eea;
+    word-break: break-all;
+}
+
+.phase-header {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 12px 20px;
+    margin: 20px 0 10px 0;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1.1rem;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.message-display {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    border-left: 4px solid #667eea;
+}
+
+.message-display h3 {
+    color: #667eea;
+    margin-bottom: 10px;
+}
+
+#currentMessage {
+    font-size: 1.1rem;
+    line-height: 1.5;
+}
+
+.progress-container {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-bar::before {
+    content: '';
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    width: var(--progress, 0%);
+    transition: width 0.5s ease;
+}
+
+.progress-text {
+    text-align: center;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.arrow {
+    position: absolute;
+    height: 2px;
+    background: #667eea;
+    z-index: 10;
+    opacity: 0;
+    transition: all 0.5s ease;
+}
+
+.arrow.active {
+    opacity: 1;
+}
+
+.arrow::after {
+    content: '';
+    position: absolute;
+    right: -8px;
+    top: -4px;
+    width: 0;
+    height: 0;
+    border-left: 8px solid #667eea;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.participant.active {
+    animation: pulse 2s infinite;
+}
+
+@media (max-width: 768px) {
+    .participants {
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+    
+    .participant {
+        max-width: 120px;
+    }
+    
+    .participant-icon {
+        font-size: 2rem;
+        padding: 15px;
+    }
+    
+    header h1 {
+        font-size: 2rem;
+    }
+    
+    .controls {
+        flex-wrap: wrap;
+    }
+}

@@ -1,0 +1,49 @@
+graph TD
+    subgraph Core Database Layer
+        RDB[(Relational DB)]
+        GraphDB[(Graph DB)]
+    end
+
+    subgraph Microservices
+        InstitutionSvc[Institution Service]
+        DeviceSvc[Device Service]
+        PersonnelSvc[Personnel Service]
+        FraudSvc[Fraud Service]
+        GraphSyncSvc[Graph Sync Service]
+    end
+
+    subgraph Event Bus
+        Kafka[(Kafka / RabbitMQ)]
+    end
+
+    subgraph Visualization & Analysis
+        Dashboard[Fraud Dashboard]
+        GraphViz[Graph Visualization Tool]
+    end
+
+    subgraph Security Layer
+        Auth[OAuth2 / RBAC]
+    end
+
+    subgraph Monitoring
+        Prometheus[Prometheus + Grafana]
+        Logs[ELK / Loki]
+    end
+
+    InstitutionSvc --> RDB
+    DeviceSvc --> RDB
+    PersonnelSvc --> RDB
+    FraudSvc --> RDB
+    GraphSyncSvc --> GraphDB
+
+    RDB --> Kafka
+    Kafka --> GraphSyncSvc
+
+    GraphDB --> GraphViz
+    RDB --> Dashboard
+
+    Auth --> Microservices
+    Monitoring --> Microservices
+
+    Dashboard --> Users
+    GraphViz --> Users

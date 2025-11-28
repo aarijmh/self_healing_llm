@@ -1,0 +1,49 @@
+{
+  "name": "Contact Form Test",
+  "url": "http://localhost:8080/demo_page_original.html",
+  "steps": [
+    {
+      "description": "Fill name field",
+      "action": "fill",
+      "text": "John Doe",
+      "selectors": [
+        "#name",
+        "input[placeholder*='Name']"
+      ]
+    },
+    {
+      "description": "Fill email field",
+      "action": "fill",
+      "text": "john@example.com",
+      "selectors": [
+        "#email",
+        "input[type='email']"
+      ]
+    },
+    {
+      "description": "Fill message field",
+      "action": "fill",
+      "text": "This is a test message",
+      "selectors": [
+        "#message",
+        "textarea"
+      ]
+    },
+    {
+      "description": "Click submit button",
+      "action": "click",
+      "selectors": [
+        "#submit-btn",
+        "button[type='submit']"
+      ]
+    },
+    {
+      "description": "Verify success message appears",
+      "action": "assert_visible",
+      "selectors": [
+        "#success-msg",
+        ".success"
+      ]
+    }
+  ]
+}

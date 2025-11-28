@@ -2,6 +2,7 @@ import json
 from playwright.sync_api import sync_playwright, Page
 from selector_healer import SelectorHealer
 from typing import Dict, List
+import time
 
 class PlaywrightTestRunner:
     def __init__(self, test_file_path: str):
@@ -36,7 +37,7 @@ class PlaywrightTestRunner:
                     if not success:
                         print(f"Test failed at step {i + 1}")
                         break
-                        
+                time.sleep(3)    
             finally:
                 browser.close()
     

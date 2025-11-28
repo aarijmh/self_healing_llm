@@ -1,0 +1,45 @@
+@startuml
+skinparam componentStyle rectangle
+
+package "Frontend" {
+  [User Interface\n(React + React Flow)]
+  [Workflow Designer]
+  [Node Configuration Panel]
+}
+
+package "Backend" {
+  [Workflow Serializer\n(JSON/YAML)]
+  [Workflow Execution Engine]
+  [Task Scheduler\n(Airflow / Celery)]
+  [Execution Monitor & Logs]
+  [Error Handling & Retry Logic]
+  [Workflow Repository\n(PostgreSQL / MongoDB)]
+}
+
+package "Data Layer" {
+  [Data Connectors]
+  [Source DBs\n(MySQL, PostgreSQL, Oracle)]
+  [APIs / Files\n(CSV, JSON, XML)]
+  [Destination DBs / Data Lakes]
+}
+
+package "Monitoring" {
+  [Monitoring Dashboard]
+  [User Notifications / Alerts]
+}
+
+[User Interface\n(React + React Flow)] --> [Workflow Designer]
+[Workflow Designer] --> [Node Configuration Panel]
+[Workflow Designer] --> [Workflow Serializer\n(JSON/YAML)]
+[Workflow Serializer\n(JSON/YAML)] --> [Workflow Execution Engine]
+[Workflow Execution Engine] --> [Task Scheduler\n(Airflow / Celery)]
+[Workflow Execution Engine] --> [Execution Monitor & Logs]
+[Workflow Execution Engine] --> [Error Handling & Retry Logic]
+[Workflow Execution Engine] --> [Data Connectors]
+[Data Connectors] --> [Source DBs\n(MySQL, PostgreSQL, Oracle)]
+[Data Connectors] --> [APIs / Files\n(CSV, JSON, XML)]
+[Data Connectors] --> [Destination DBs / Data Lakes]
+[Execution Monitor & Logs] --> [Monitoring Dashboard]
+[Workflow Serializer\n(JSON/YAML)] --> [Workflow Repository\n(PostgreSQL / MongoDB)]
+[Monitoring Dashboard] --> [User Notifications / Alerts]
+@enduml

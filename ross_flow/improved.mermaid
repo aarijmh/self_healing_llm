@@ -1,0 +1,77 @@
+sequenceDiagram
+    autonumber
+    participant U as User (CallSign App)
+    participant OA as OpenAI Agent Runtime
+    participant CS as CallSign Trust Gateway
+    participant B as Bank API Gateway
+    participant M as Monitoring & Audit
+
+    %% --- Consolidated Trust Bootstrap ---
+    Note over OA,CS,B: 1) Single-phase trust establishment
+    rect rgb(240, 248, 255)
+        OA->>CS: Trust ceremony<br/>{"ssa": "eyJ...", "attestation": {...}, "jwks": {...}}
+        CS->>B: Trust handshake<br/>{"as_keys": {...}, "rar_schema": {...}, "mtls_certs": [...]}
+        B-->>CS: Trust confirmation<br/>{"status": "confirmed", "api_contract": {...}}
+        CS-->>OA: Trust bundle<br/>{"endpoints": [...], "scopes": [...], "policies": [...]}
+    end
+
+    %% --- User Enrollment with Privacy Controls ---
+    Note over U,CS: 2) Identity & consent management
+    rect rgb(245, 255, 245)
+        U->>CS: Enroll<br/>{"kyc_data": {...}, "consent": {...}, "retention_policy": "30d"}
+        CS-->>U: Registration response<br/>{"webauthn_challenge": "...", "dashboard_url": "..."}
+        U->>CS: Delegation policy<br/>{"limits": {"daily": 1000}, "constraints": [...], "sca_rules": [...]}
+        CS-->>U: Policy created<br/>{"policy_id": "pol_123", "revocation_handle": "rev_456"}
+    end
+
+    %% --- Simplified Capability Model ---
+    Note over CS,OA: 3) Capability binding (OAuth-native only)
+    CS->>CS: Store policy bound to client_id + agent key (jkt)
+    CS-->>OA: Capability token + refresh policy
+
+    %% --- Resilient Transaction Flow ---
+    Note over OA,B: 4) Payment execution with fallbacks
+    rect rgb(255, 245, 245)
+        OA->>CS: Token request<br/>{"dpop": "eyJ...", "policy_id": "pol_123", "scope": "payment:write"}
+        
+        alt Happy path
+            CS-->>OA: Access token<br/>{"access_token": "eyJ...", "expires_in": 3600, "scope": "payment:write"}
+            OA->>B: Payment request<br/>{"amount": 100.00, "currency": "USD", "recipient": "acc_789"}
+            B-->>OA: Transaction receipt<br/>{"txn_id": "tx_abc123", "status": "completed", "timestamp": "..."}
+        else Validation failure
+            CS->>CS: Circuit breaker check
+            CS-->>OA: Cached decision<br/>{"decision": "allow", "cached": true, "expires": "..."}
+            Note over OA: Retry with exponential backoff
+        else Bank unavailable
+            B-->>OA: Service unavailable<br/>{"error": "service_unavailable", "retry_after": 30}
+            OA->>OA: Queue for retry (max 3 attempts)
+        end
+    end
+
+    %% --- Async Monitoring & Compliance ---
+    Note over M: 5) Observability pipeline
+    rect rgb(248, 248, 255)
+        par Distributed tracing
+            OA-->>M: Trace data<br/>{"request_id": "req_123", "latency_ms": 45, "status": "success"}
+            CS-->>M: Auth trace<br/>{"policy_eval_ms": 12, "auth_time_ms": 8, "decision": "allow"}
+            B-->>M: Transaction trace<br/>{"txn_id": "tx_abc123", "amount": 100.00, "status": "completed"}
+        and Real-time alerts
+            CS-->>M: Policy violation<br/>{"type": "rate_limit_exceeded", "user_id": "usr_456", "severity": "high"}
+            B-->>M: Anomaly detected<br/>{"type": "unusual_amount", "txn_id": "tx_abc123", "risk_score": 0.8}
+        and Audit correlation
+            M->>M: Correlate events by request_id + txn_id
+            M-->>U: Alert notification<br/>{"type": "transaction_complete", "txn_id": "tx_abc123", "amount": 100.00}
+        end
+    end
+
+    %% --- Health Checks & Recovery ---
+    Note over OA,CS,B: 6) System health monitoring
+    loop Every 30s
+        OA->>CS: Health check<br/>{"timestamp": "...", "component": "agent_runtime"}
+        CS->>B: Health check<br/>{"timestamp": "...", "component": "trust_gateway"}
+        alt All healthy
+            CS-->>OA: Health OK<br/>{"status": "healthy", "uptime": "99.9%", "latency_ms": 5}
+        else Degraded
+            CS-->>OA: Partial health<br/>{"status": "degraded", "cached_mode": true, "reason": "bank_slow"}
+        end
+    end

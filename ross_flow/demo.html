@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Flow Demo - CallSign Trust Gateway</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .flow-container {
+            display: flex;
+            justify-content: space-between;
+            padding: 40px;
+            min-height: 600px;
+            position: relative;
+        }
+        
+        .component {
+            width: 150px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .component-box {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px 10px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .component-box.active {
+            background: #e3f2fd;
+            border-color: #2196f3;
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.3);
+        }
+        
+        .component-box.sending {
+            background: #fff3e0;
+            border-color: #ff9800;
+            animation: pulse 1s infinite;
+        }
+        
+        .component-box.receiving {
+            background: #e8f5e8;
+            border-color: #4caf50;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .arrow {
+            position: absolute;
+            height: 3px;
+            background: #2196f3;
+            transform-origin: left center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .arrow.active {
+            opacity: 1;
+            animation: flow 2s ease-in-out;
+        }
+        
+        .arrow::after {
+            content: '';
+            position: absolute;
+            right: -10px;
+            top: -5px;
+            width: 0;
+            height: 0;
+            border-left: 10px solid #2196f3;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+        }
+        
+        @keyframes flow {
+            0% { width: 0; }
+            100% { width: calc(100% - 20px); }
+        }
+        
+        .controls {
+            background: #f8f9fa;
+            padding: 30px;
+            border-top: 1px solid #e9ecef;
+            text-align: center;
+        }
+        
+        .btn {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0 10px;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+        
+        .btn:hover { background: #1976d2; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .scenario-btn {
+            background: #4caf50;
+            margin-top: 10px;
+        }
+        
+        .scenario-btn:hover { background: #388e3c; }
+        
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .message-log {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .message-log.show { opacity: 1; }
+        
+        .phase-indicator {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            background: #2196f3;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>OAuth Flow Demo</h1>
+            <p>Interactive demonstration of CallSign Trust Gateway flow</p>
+        </div>
+        
+        <div class="flow-container">
+            <div class="phase-indicator" id="phaseIndicator">Phase 1: Trust Bootstrap</div>
+            
+            <div class="component" id="user">
+                <div class="component-box">
+                    <h3>👤</h3>
+                    <p>User<br>(CallSign App)</p>
+                </div>
+            </div>
+            
+            <div class="component" id="agent">
+                <div class="component-box">
+                    <h3>🤖</h3>
+                    <p>OpenAI<br>Agent Runtime</p>
+                </div>
+            </div>
+            
+            <div class="component" id="callsign">
+                <div class="component-box">
+                    <h3>🛡️</h3>
+                    <p>CallSign<br>Trust Gateway</p>
+                </div>
+            </div>
+            
+            <div class="component" id="bank">
+                <div class="component-box">
+                    <h3>🏦</h3>
+                    <p>Bank<br>API Gateway</p>
+                </div>
+            </div>
+            
+            <div class="component" id="monitor">
+                <div class="component-box">
+                    <h3>📊</h3>
+                    <p>Monitoring<br>& Audit</p>
+                </div>
+            </div>
+            
+            <div class="message-log" id="messageLog"></div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn" onclick="startDemo()">▶️ Start Demo</button>
+            <button class="btn" onclick="resetDemo()">🔄 Reset</button>
+            <button class="btn" onclick="pauseDemo()" id="pauseBtn" disabled>⏸️ Pause</button>
+            
+            <br>
+            
+            <button class="btn scenario-btn" onclick="runScenario('happy')">✅ Happy Path</button>
+            <button class="btn scenario-btn" onclick="runScenario('failure')">❌ Validation Failure</button>
+            <button class="btn scenario-btn" onclick="runScenario('unavailable')">🚫 Bank Unavailable</button>
+            
+            <div class="status" id="status">
+                Ready to start demo. Click "Start Demo" to begin the OAuth flow demonstration.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 0;
+        let isRunning = false;
+        let isPaused = false;
+        let currentScenario = 'normal';
+        
+        const steps = [
+            // Phase 1: Trust Bootstrap
+            { from: 'agent', to: 'callsign', message: 'Trust ceremony (SSA + workload attestation + JWKS)', phase: 'Phase 1: Trust Bootstrap' },
+            { from: 'callsign', to: 'bank', message: 'Trust handshake (AS keys + RAR schema + mTLS certs)', phase: 'Phase 1: Trust Bootstrap' },
+            { from: 'bank', to: 'callsign', message: 'Trust confirmation + API contract', phase: 'Phase 1: Trust Bootstrap' },
+            { from: 'callsign', to: 'agent', message: 'Trust bundle (endpoints, scopes, policies)', phase: 'Phase 1: Trust Bootstrap' },
+            
+            // Phase 2: User Enrollment
+            { from: 'user', to: 'callsign', message: 'Enroll (KYC + consent preferences + data retention policy)', phase: 'Phase 2: Identity & Consent' },
+            { from: 'callsign', to: 'user', message: 'WebAuthn registration + privacy dashboard access', phase: 'Phase 2: Identity & Consent' },
+            { from: 'user', to: 'callsign', message: 'Create delegation policy (limits, constraints, SCA rules)', phase: 'Phase 2: Identity & Consent' },
+            { from: 'callsign', to: 'user', message: 'Policy confirmation + revocation handle', phase: 'Phase 2: Identity & Consent' },
+            
+            // Phase 3: Capability Binding
+            { from: 'callsign', to: 'callsign', message: 'Store policy bound to client_id + agent key (jkt)', phase: 'Phase 3: Capability Binding' },
+            { from: 'callsign', to: 'agent', message: 'Capability token + refresh policy', phase: 'Phase 3: Capability Binding' },
+            
+            // Phase 4: Transaction Flow
+            { from: 'agent', to: 'callsign', message: 'Token request (DPoP + policy_id)', phase: 'Phase 4: Payment Execution' },
+            { from: 'callsign', to: 'agent', message: 'Access token (cached validation)', phase: 'Phase 4: Payment Execution' },
+            { from: 'agent', to: 'bank', message: 'Payment API call (mTLS + DPoP token)', phase: 'Phase 4: Payment Execution' },
+            { from: 'bank', to: 'agent', message: 'Transaction receipt', phase: 'Phase 4: Payment Execution' },
+            
+            // Phase 5: Monitoring
+            { from: 'agent', to: 'monitor', message: 'Trace span (request_id, latency, status)', phase: 'Phase 5: Observability' },
+            { from: 'callsign', to: 'monitor', message: 'Trace span (policy_eval, auth_time)', phase: 'Phase 5: Observability' },
+            { from: 'bank', to: 'monitor', message: 'Trace span (txn_id, amount, status)', phase: 'Phase 5: Observability' }
+        ];
+        
+        const failureSteps = [
+            ...steps.slice(0, 10), // Normal flow until transaction
+            { from: 'agent', to: 'callsign', message: 'Token request (DPoP + policy_id)', phase: 'Phase 4: Payment Execution' },
+            { from: 'callsign', to: 'callsign', message: 'Circuit breaker check', phase: 'Phase 4: Validation Failure' },
+            { from: 'callsign', to: 'agent', message: 'Cached policy decision (degraded mode)', phase: 'Phase 4: Validation Failure' },
+            { from: 'agent', to: 'agent', message: 'Retry with exponential backoff', phase: 'Phase 4: Validation Failure' }
+        ];
+        
+        const unavailableSteps = [
+            ...steps.slice(0, 12), // Normal flow until bank call
+            { from: 'bank', to: 'agent', message: '503 Service Unavailable', phase: 'Phase 4: Bank Unavailable' },
+            { from: 'agent', to: 'agent', message: 'Queue for retry (max 3 attempts)', phase: 'Phase 4: Bank Unavailable' }
+        ];
+        
+        function showMessage(text) {
+            const log = document.getElementById('messageLog');
+            log.textContent = text;
+            log.classList.add('show');
+            setTimeout(() => log.classList.remove('show'), 3000);
+        }
+        
+        function updateStatus(text) {
+            document.getElementById('status').textContent = text;
+        }
+        
+        function updatePhase(phase) {
+            document.getElementById('phaseIndicator').textContent = phase;
+        }
+        
+        function animateStep(step) {
+            return new Promise(resolve => {
+                const fromEl = document.getElementById(step.from);
+                const toEl = document.getElementById(step.to);
+                
+                // Highlight sender
+                fromEl.querySelector('.component-box').classList.add('sending');
+                
+                // Show message
+                showMessage(step.message);
+                updatePhase(step.phase);
+                
+                setTimeout(() => {
+                    // Remove sender highlight, add receiver highlight
+                    fromEl.querySelector('.component-box').classList.remove('sending');
+                    if (step.from !== step.to) {
+                        toEl.querySelector('.component-box').classList.add('receiving');
+                    }
+                    
+                    setTimeout(() => {
+                        toEl.querySelector('.component-box').classList.remove('receiving');
+                        resolve();
+                    }, 1000);
+                }, 2000);
+            });
+        }
+        
+        async function runDemo(stepList = steps) {
+            if (isRunning) return;
+            
+            isRunning = true;
+            document.querySelector('button[onclick="startDemo()"]').disabled = true;
+            document.getElementById('pauseBtn').disabled = false;
+            
+            for (let i = currentStep; i < stepList.length; i++) {
+                if (isPaused) break;
+                
+                currentStep = i;
+                updateStatus(`Step ${i + 1}/${stepList.length}: ${stepList[i].message}`);
+                
+                await animateStep(stepList[i]);
+                
+                if (isPaused) break;
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            if (!isPaused) {
+                updateStatus('Demo completed! 🎉');
+                currentStep = 0;
+            }
+            
+            isRunning = false;
+            document.querySelector('button[onclick="startDemo()"]').disabled = false;
+            document.getElementById('pauseBtn').disabled = true;
+        }
+        
+        function startDemo() {
+            isPaused = false;
+            runDemo(currentScenario === 'failure' ? failureSteps : 
+                   currentScenario === 'unavailable' ? unavailableSteps : steps);
+        }
+        
+        function pauseDemo() {
+            isPaused = true;
+            updateStatus('Demo paused. Click "Start Demo" to continue.');
+        }
+        
+        function resetDemo() {
+            isPaused = true;
+            isRunning = false;
+            currentStep = 0;
+            currentScenario = 'normal';
+            
+            // Reset all component states
+            document.querySelectorAll('.component-box').forEach(box => {
+                box.classList.remove('active', 'sending', 'receiving');
+            });
+            
+            updateStatus('Demo reset. Ready to start.');
+            updatePhase('Phase 1: Trust Bootstrap');
+            document.querySelector('button[onclick="startDemo()"]').disabled = false;
+            document.getElementById('pauseBtn').disabled = true;
+        }
+        
+        function runScenario(scenario) {
+            resetDemo();
+            currentScenario = scenario;
+            
+            setTimeout(() => {
+                if (scenario === 'happy') {
+                    updateStatus('Running happy path scenario...');
+                    runDemo(steps);
+                } else if (scenario === 'failure') {
+                    updateStatus('Running validation failure scenario...');
+                    runDemo(failureSteps);
+                } else if (scenario === 'unavailable') {
+                    updateStatus('Running bank unavailable scenario...');
+                    runDemo(unavailableSteps);
+                }
+            }, 100);
+        }
+        
+        // Initialize
+        resetDemo();
+    </script>
+</body>
+</html>
